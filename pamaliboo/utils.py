@@ -16,7 +16,11 @@ import pandas as pd
 
 
 def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
-    y = df[y_column].values
-    df.drop(y_column, axis=1, inplace=True)
-    X = df.values
-    return X, y
+  y = df[y_column].values
+  df.drop(y_column, axis=1, inplace=True)
+  X = df.values
+  return X, y
+
+
+def dict_to_array(dic: dict[str: tuple[float]]) -> np.ndarray:
+  return np.array(list(dic.values()))

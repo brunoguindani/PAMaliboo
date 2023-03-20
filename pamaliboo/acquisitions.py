@@ -13,8 +13,10 @@ limitations under the License.
 
 from abc import ABC, abstractmethod
 import numpy as np
+from scipy.optimize import minimize
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+from .utils import dict_to_array
 
 
 class AcquisitionFunction(ABC):
@@ -25,8 +27,42 @@ class AcquisitionFunction(ABC):
   def evaluate(self, x: np.ndarray) -> float:
     pass
 
+  def maximize(self, bounds: dict[str: tuple[float, float]])
+               -> tuple[np.ndarray, float]:
+    # TODO copy from MALIBOO acq_max() and update
+    n_warmup = 10
+    n_iter = 100
+    bounds_arr = dict_to_array(bounds)
+    x_tries = random_state.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                                   size=(n_warmup, bounds_arr.shape[0]))
+    ys = self.evaluate(x_tries)
+    idx = ys.argmax()
+    x_max = x_tries[idx]
+    max_acq = ys[idx]
+
+    # Explore the parameter space more throughly
+    x_seeds = random_state.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                                   size=(n_iter, bounds_arr.shape[0]))
+
+    for x_try in x_seeds:
+      # Find the minimum of minus the acquisition function
+      res = minimize(lambda x: -self.evaluate(x), x_try.reshape(1, -1),
+                     bounds=bounds_arr, method="L-BFGS-B")
+
+      if not res.success:
+          continue
+
+      # Store it if better than previous minimum(maximum).
+      if -np.squeeze(res.fun) >= max_acq:
+          x_max = res.x
+          max_acq = -np.squeeze(res.fun)
+
+    return np.clip(x_max, bounds[:, 0], bounds[:, 1]), max_acq
+
 
 class UpperConfidenceBound(AcquisitionFunction):
+  solver = 'L-BFGS-B'
+
   def __init__(self, kappa: float = 2.576):
     self.kappa = kappa
 
@@ -39,6 +75,8 @@ class UpperConfidenceBound(AcquisitionFunction):
 
 
 class ExpectedImprovement(AcquisitionFunction):
+  solver = 'L-BFGS-B'
+
   def __init__(self, xi: float = 0.0):
     self.xi = xi
 
