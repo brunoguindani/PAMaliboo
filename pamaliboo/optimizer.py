@@ -70,9 +70,11 @@ class Optimizer:
       queue_df = jobs_queue.get_df().items()
       for queue_id, queue_output_file in queue_df:
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
-          # TODO take output folder into account in the following lines
-          y_real = self.objective.parse_and_evaluate(queue_output_file)
-          # TODO remove queue_output_file
+          # Get objective value from output file, then remove the file
+          output_path = os.path.join(self.objective.output_folder,
+                                     queue_output_file)
+          y_real = self.objective.parse_and_evaluate(output_path)
+          os.remove(output_path)
           # Replace fake evaluation with correct one in the GP
           self.gp.remove_point(curr_iter)
           self.gp.add_point(x_new, y_real)
