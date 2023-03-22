@@ -18,6 +18,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
 from typing import Optional, Union
 
+from .dataframe import FileDataFrame
 from .utils import df_to_Xy
 
 
@@ -51,56 +52,36 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     self.database_path = database
     self.feature_names = feature_names
 
-    starting_db = self.get_database()
-    self._save_database(starting_db)
+    self.database = FileDataFrame(self.database_path,
+                                  columns=self.database_columns)
 
 
   @property
   def database_columns(self):
     return self.feature_names + [self.target_column]
-  
-
-  def get_database(self) -> pd.DataFrame:
-    """
-    Get database from disk, or empty DataFrame if the file is empty
-    """
-    try:
-      return pd.read_csv(self.database_path, index_col=self.index_column)
-    except EmptyDataError:
-      return pd.DataFrame(columns=self.database_columns)
 
 
   def read_database(self) -> None:
     """
     Update the X_train_ and y_train_ members with data from the database
     """
-    db = self.get_database()
-    self.X_train_, self.y_train_ = df_to_Xy(db, self.target_column)
-
-
-  def _save_database(self, db: pd.DataFrame) -> None:
-    """Save given DataFrame to file. Internal use only!"""
-    db.to_csv(self.database_path, index_label=self.index_column)
+    df = self.database.get_df()
+    self.X_train_, self.y_train_ = df_to_Xy(df, self.target_column)
 
 
   def add_point_to_database(self, index: int, X: np.ndarray, y: float) -> None:
     """
     Update database with a new point having data X and target value y
     """
-    db = self.get_database()
     row = np.hstack((X, [y]))
-    print(row)
-    db.loc[index] = row
-    self._save_database(db)
+    self.database.add_row(index, row)
 
 
   def remove_point_from_database(self, index: int) -> None:
     """
     Update database by removing the point with the given index
     """
-    db = self.get_database()
-    db.drop(index, axis=0, inplace=True)
-    self._save_database(db)
+    self.database.remove_row(index)
 
 
   def fit(self, X: Optional[np.ndarray] = None,
