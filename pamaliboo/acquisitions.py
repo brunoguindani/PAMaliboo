@@ -27,26 +27,27 @@ class AcquisitionFunction(ABC):
   def evaluate(self, x: np.ndarray) -> float:
     pass
 
-  def maximize(self, bounds: dict[str: tuple[float, float]])
+  def maximize(self, bounds: dict[str: tuple[float, float]]) \
                -> tuple[np.ndarray, float]:
     # TODO copy from MALIBOO acq_max() and update
     n_warmup = 10
     n_iter = 100
     bounds_arr = dict_to_array(bounds)
-    x_tries = random_state.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
-                                   size=(n_warmup, bounds_arr.shape[0]))
+    rng = np.random.default_rng()
+    x_tries = rng.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                          size=(n_warmup, bounds_arr.shape[0]))
     ys = self.evaluate(x_tries)
     idx = ys.argmax()
     x_max = x_tries[idx]
     max_acq = ys[idx]
 
     # Explore the parameter space more throughly
-    x_seeds = random_state.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
-                                   size=(n_iter, bounds_arr.shape[0]))
+    x_seeds = rng.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                          size=(n_iter, bounds_arr.shape[0]))
 
     for x_try in x_seeds:
       # Find the minimum of minus the acquisition function
-      res = minimize(lambda x: -self.evaluate(x), x_try.reshape(1, -1),
+      res = minimize(lambda x: -self.evaluate(x), x0=x_try.reshape(1, -1),
                      bounds=bounds_arr, method="L-BFGS-B")
 
       if not res.success:
