@@ -31,9 +31,7 @@ class JobStatus(Enum):
 class JobSubmitter(ABC):
   def __init__(self, output_folder: str):
     self.output_folder = output_folder
-    # if os.path.exists(output_folder):
-    #   raise FileExistsError(f"{output_folder} already exists")
-    # os.makedirs(output_folder)
+    os.makedirs(self.output_folder, exist_ok=True)
 
   @abstractmethod
   def submit(self, cmd: list[str], output_file: str) -> int:

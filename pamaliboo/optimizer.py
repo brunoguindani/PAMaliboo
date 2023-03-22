@@ -64,7 +64,7 @@ class Optimizer:
 
       # Add fake objective value to the GP
       y_fake = self.gp.predict(x_new)
-      self.gp.add_point_to_database(curr_iter, x_new, y_fake)
+      self.gp.add_point(curr_iter, x_new, y_fake)
 
       # Loop on finished evaluations (if any)
       queue_df = jobs_queue.get_df().items()
@@ -74,8 +74,8 @@ class Optimizer:
           y_real = self.objective.parse_and_evaluate(queue_output_file)
           # TODO remove queue_output_file
           # Replace fake evaluation with correct one in the GP
-          self.gp.remove_point_from_database(curr_iter)
-          self.gp.add_point_to_database(x_new, y_real)
+          self.gp.remove_point(curr_iter)
+          self.gp.add_point(x_new, y_real)
           # Record real point in the corresponding dataframe
           real_points.add_row(queue_id, x_new, y_real)
           # Remove point from queue

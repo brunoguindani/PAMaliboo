@@ -69,7 +69,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     self.X_train_, self.y_train_ = df_to_Xy(df, self.target_column)
 
 
-  def add_point_to_database(self, index: int, X: np.ndarray, y: float) -> None:
+  def add_point(self, index: int, X: np.ndarray, y: float) -> None:
     """
     Update database with a new point having data X and target value y
     """
@@ -77,7 +77,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     self.database.add_row(index, row)
 
 
-  def remove_point_from_database(self, index: int) -> None:
+  def remove_point(self, index: int) -> None:
     """
     Update database by removing the point with the given index
     """
