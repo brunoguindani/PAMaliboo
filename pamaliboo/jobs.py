@@ -44,7 +44,7 @@ class JobSubmitter(ABC):
 
 
 class HyperqueueJobSubmitter(JobSubmitter):
-  hq_exec = '../lib/hq'
+  hq_exec = 'lib/hq'
 
   def submit(self, cmd: list[str], output_file: str) -> int:
     """Submit a job using Hyperqueue"""
@@ -62,7 +62,6 @@ class HyperqueueJobSubmitter(JobSubmitter):
     sub = subprocess.run(cmd, capture_output=True)
     # TODO handle errors in json loading and [] accesses
     output = json.loads(sub.stdout.decode())
-    print(output)
     for job in output:
       if job['id'] == job_id:
         job_stats = job['task_stats']
