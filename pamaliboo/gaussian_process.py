@@ -102,8 +102,11 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     return super().fit(self.X_train_, self.y_train_)
 
 
-  def predict(self, *args, **kwargs) -> Union[np.ndarray, tuple[np.ndarray]]:
+  def predict(self, X: np.ndarray, return_std: bool = False) \
+              -> Union[np.ndarray, tuple[np.ndarray]]:
     """Wrapper for predict() that filters unwanted warnings."""
+    if len(X.shape) == 1:
+      X = X.reshape(1, -1)
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
-      return super().predict(*args, **kwargs)
+      return super().predict(X, return_std=return_std)

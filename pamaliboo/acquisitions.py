@@ -48,7 +48,7 @@ class AcquisitionFunction(ABC):
     for x_try in x_seeds:
       # Find the minimum of minus the acquisition function
       res = minimize(lambda x: -self.evaluate(x), x0=x_try.reshape(1, -1),
-                     bounds=bounds_arr, method="L-BFGS-B")
+                     bounds=bounds_arr, method=self.solver)
 
       if not res.success:
           continue
@@ -58,7 +58,7 @@ class AcquisitionFunction(ABC):
           x_max = res.x
           max_acq = -np.squeeze(res.fun)
 
-    return np.clip(x_max, bounds[:, 0], bounds[:, 1]), max_acq
+    return np.clip(x_max, bounds_arr[:, 0], bounds_arr[:, 1]), max_acq
 
 
 class UpperConfidenceBound(AcquisitionFunction):
