@@ -11,9 +11,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import os
 import time
 
 from .acquisitions import AcquisitionFunction
+from .dataframe import FileDataFrame
 from .gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from .jobs import JobStatus, JobSubmitter
 from .objectives import ObjectiveFunction
@@ -30,6 +32,8 @@ class Optimizer:
     self.gp = gp
     self.job_submitter = job_submitter
     self.objective = objective
+    self.output_folder = output_folder
+    os.makedirs(self.output_folder, exist_ok=True)
 
 
   def submit_initial_points(self, n_points: int):
@@ -37,8 +41,15 @@ class Optimizer:
 
 
   def maximize(self, n_iter: int, parallelism_level: int, timeout: int):
+    # Initialize dataframes
+    jobs_queue = FileDataFrame(os.path.join(self.output_folder,
+                                            'jobs_queue.csv'),
+                               columns=['path'])
+    real_points = FileDataFrame(os.path.join(self, output_folder,
+                                             'real_points.csv'),
+                                columns=self.gp.database_columns)
+
     curr_iter = 0
-    jobs_queue = {}  # TODO write to file for fault tolerance
 
     while curr_iter <= n_iter:
       # Find next point to be evaluated
@@ -49,23 +60,26 @@ class Optimizer:
       cmd = self.objective.execution_command(x_new)
       output_file = f"iter_{curr_iter}.stdout"
       job_id = self.job_submitter.submit(cmd, output_file)
-      jobs_queue[job_id] = output_file
+      jobs_queue.add_row(job_id, [output_file])
 
       # Add fake objective value to the GP
       y_fake = self.gp.predict(x_new)
       self.gp.add_point_to_database(curr_iter, x_new, y_fake)
 
       # Loop on finished evaluations (if any)
-      for queue_id, queue_output_file in jobs_queue.items():
+      queue_df = jobs_queue.get_df().items()
+      for queue_id, queue_output_file in queue_df:
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           # TODO take output folder into account in the following lines
           y_real = self.objective.parse_and_evaluate(queue_output_file)
           # TODO remove queue_output_file
-          # TODO add point to the list of real points
+          # Replace fake evaluation with correct one in the GP
           self.gp.remove_point_from_database(curr_iter)
           self.gp.add_point_to_database(x_new, y_real)
+          # Record real point in the corresponding dataframe
+          real_points.add_row(queue_id, x_new, y_real)
           # Remove point from queue
-          del jobs_queue[queue_id]
+          jobs_queue.remove_row(queue_id)
 
       # Fit Gaussian Process
       self.gp.fit()
