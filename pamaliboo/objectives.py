@@ -25,9 +25,19 @@ class ObjectiveFunction(ABC):
     pass
 
 
+class DummyObjective(ObjectiveFunction):
+  def execution_command(self, x: np.ndarray) -> list[str]:
+    return ['./dummy.sh', str(x[0]), str(x[1])]
+
+  def parse_and_evaluate(self, output_file: str) -> float:
+    with open(output_file, 'r') as f:
+      output = f.read().strip()
+    return float(output)
+
+
 class LigenDummyObjectiveFunction(ObjectiveFunction):
   def execution_command(self, x: np.ndarray) -> list[str]:
-    return ['./ligen_dummy.sh'] + [str(_) for _ in x]
+    return ['./ligen.sh'] + [str(_) for _ in x]
 
   def parse_and_evaluate(self, output_file: str) -> float:
     with open(output_file, 'r') as f:

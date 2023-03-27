@@ -36,7 +36,8 @@ class Optimizer:
     os.makedirs(self.output_folder, exist_ok=True)
 
 
-  def submit_initial_points(self, n_points: int):
+  def submit_initial_points(self, n_points: int, timeout: int):
+    # TODO
     pass
 
 
