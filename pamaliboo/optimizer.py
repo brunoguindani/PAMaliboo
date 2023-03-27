@@ -19,6 +19,7 @@ from .dataframe import FileDataFrame
 from .gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from .jobs import JobStatus, JobSubmitter
 from .objectives import ObjectiveFunction
+from .utils import join_Xy
 
 
 class Optimizer:
@@ -46,7 +47,7 @@ class Optimizer:
     # Initialize dataframes
     jobs_queue = FileDataFrame(os.path.join(self.output_folder,
                                             'jobs_queue.csv'),
-                               columns=['path'])
+                               columns=['path', 'iteration'])
     real_points = FileDataFrame(os.path.join(self.output_folder,
                                              'real_points.csv'),
                                 columns=self.gp.database_columns)
@@ -63,7 +64,7 @@ class Optimizer:
       cmd = self.objective.execution_command(x_new)
       output_file = f"iter_{curr_iter}.stdout"
       job_id = self.job_submitter.submit(cmd, output_file)
-      jobs_queue.add_row(job_id, [output_file])
+      jobs_queue.add_row(job_id, [output_file, curr_iter])
 
       # Add fake objective value to the GP
       y_fake = self.gp.predict(x_new, return_std=False)[0]
@@ -71,18 +72,20 @@ class Optimizer:
 
       # Loop on finished evaluations (if any)
       queue_df = jobs_queue.get_df()
-      for queue_id, queue_output_file in queue_df.iterrows():
+      for queue_id, queue_row in queue_df.iterrows():
+        queue_file, queue_iter = queue_row
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           # Get objective value from output file, then remove the file
-          output_path = os.path.join(self.objective.output_folder,
-                                     queue_output_file)
+          output_path = os.path.join(self.job_submitter.output_folder,
+                                     queue_file)
           y_real = self.objective.parse_and_evaluate(output_path)
           os.remove(output_path)
           # Replace fake evaluation with correct one in the GP
-          self.gp.remove_point(curr_iter)
-          self.gp.add_point(x_new, y_real)
+          self.gp.remove_point(queue_iter)
+          self.gp.add_point(queue_iter, x_new, y_real)
           # Record real point in the corresponding dataframe
-          real_points.add_row(queue_id, x_new, y_real)
+          new_real_point = list(join_Xy(x_new, y_real))
+          real_points.add_row(queue_iter, new_real_point)
           # Remove point from queue
           jobs_queue.remove_row(queue_id)
 

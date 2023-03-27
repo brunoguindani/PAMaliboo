@@ -50,7 +50,7 @@ class HyperqueueJobSubmitter(JobSubmitter):
     """Submit a job using Hyperqueue"""
     file_path = os.path.join(self.output_folder, output_file)
     hq_cmd = [self.hq_exec, 'submit', '--output-mode', 'json',
-              '--stdout', file_path, '--stderr', '/dev/null'] + cmd
+              '--stdout', file_path, '--stderr', file_path] + cmd
     sub = subprocess.run(hq_cmd, capture_output=True)
     # TODO handle errors in json loading and 'id' access
     output = json.loads(sub.stdout.decode())

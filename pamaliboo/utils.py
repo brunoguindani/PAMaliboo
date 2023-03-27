@@ -24,3 +24,7 @@ def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
 
 def dict_to_array(dic: dict[str: tuple[float]]) -> np.ndarray:
   return np.array(list(dic.values()))
+
+
+def join_Xy(X: np.ndarray, y: float) -> np.ndarray:
+  return np.hstack((X, [y]))

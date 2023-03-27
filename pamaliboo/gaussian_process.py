@@ -20,7 +20,7 @@ from typing import Optional, Union
 import warnings
 
 from .dataframe import FileDataFrame
-from .utils import df_to_Xy
+from .utils import df_to_Xy, join_Xy
 
 
 class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
@@ -74,7 +74,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     """
     Update database with a new point having data X and target value y
     """
-    row = np.hstack((X, [y]))
+    row = join_Xy(X, y)
     self.database.add_row(index, row)
 
 
