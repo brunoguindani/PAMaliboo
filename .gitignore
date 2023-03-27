@@ -1,5 +1,15 @@
+# Local files
 *.local.*
+
+# Python cache files
 __pycache__
+
+# Shell scripts
 *.sh
+
+# IDE files
 *.sublime-*
-job-*/
+
+# Output files
+*.csv
+*.stdout
