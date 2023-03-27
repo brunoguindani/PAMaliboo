@@ -26,7 +26,8 @@ class Optimizer:
                      bounds: dict[str: tuple[float, float]],
                      gp: DGPR,
                      job_submitter: JobSubmitter,
-                     objective: ObjectiveFunction):
+                     objective: ObjectiveFunction,
+                     output_folder: str):
     self.acquisition = acquisition
     self.bounds = bounds
     self.gp = gp
@@ -46,7 +47,7 @@ class Optimizer:
     jobs_queue = FileDataFrame(os.path.join(self.output_folder,
                                             'jobs_queue.csv'),
                                columns=['path'])
-    real_points = FileDataFrame(os.path.join(self, output_folder,
+    real_points = FileDataFrame(os.path.join(self.output_folder,
                                              'real_points.csv'),
                                 columns=self.gp.database_columns)
 
@@ -55,7 +56,8 @@ class Optimizer:
     while curr_iter <= n_iter:
       # Find next point to be evaluated
       self.acquisition.update_state(self.gp, curr_iter)
-      x_new = self.acquisition.maximize(self.bounds)
+      # TODO collect acq_value in a database (?)
+      x_new, acq_value = self.acquisition.maximize(self.bounds)
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
@@ -64,12 +66,12 @@ class Optimizer:
       jobs_queue.add_row(job_id, [output_file])
 
       # Add fake objective value to the GP
-      y_fake = self.gp.predict(x_new)
+      y_fake = self.gp.predict(x_new, return_std=False)[0]
       self.gp.add_point(curr_iter, x_new, y_fake)
 
       # Loop on finished evaluations (if any)
-      queue_df = jobs_queue.get_df().items()
-      for queue_id, queue_output_file in queue_df:
+      queue_df = jobs_queue.get_df()
+      for queue_id, queue_output_file in queue_df.iterrows():
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           # Get objective value from output file, then remove the file
           output_path = os.path.join(self.objective.output_folder,

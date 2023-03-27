@@ -52,3 +52,10 @@ class FileDataFrame:
     self.read()
     self.df.drop(index, axis=0, inplace=True)
     self.save()
+
+
+  def __len__(self) -> int:
+    self.read()
+    length = self.df.shape[0]
+    self.save()
+    return length
