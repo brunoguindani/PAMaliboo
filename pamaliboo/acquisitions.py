@@ -22,20 +22,49 @@ from .utils import dict_to_array
 
 
 class AcquisitionFunction(ABC):
+  """
+  Acquisition function to be used in Bayesian Optimization (BO) algorithms.
+
+  BO algorithms iteratively choose the next point to evaluate by solving a
+  proxy problem, which is the maximization of an acquisition function. This
+  function a(x) represents the utility attributed to sampling a particular
+  point x. In this context, 'utility' may mean a large reduction in
+  uncertainty (exploration of new areas), or a promising large value of the
+  target objective function which is to be maximized (exploitation of known
+  information). An acquisition function balances this exploration-exploitation
+  trade-off. At a given iteration of BO, the point x which maximizes the
+  acquisition function is the one in which the target function will be
+  evaluated.
+
+  The class must have a `solver` string member, indicating the method used by
+  the scipy.optimize.minimize() function.
+  """
   def __init__(self, maximize_n_warmup: int, maximize_n_iter: int):
+    """
+    Both arguments are related to the maximization of the acquisition function.
+    `maximize_n_warmup` is the number of initial warmup evaluations of the
+    function, and `maximize_n_iter` is the number of different initial points
+    x0 from which the maximization will start.
+    """
     self.logger = logging.getLogger(__name__)
     self.n_warmup = maximize_n_warmup
     self.n_iter = maximize_n_iter
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
+    """Update state of the acquisition function, e.g. the Gaussian Process"""
     self.gp = gp
 
   @abstractmethod
   def evaluate(self, x: np.ndarray) -> float:
+    """Evaluate the acquisition function in the given point"""
     pass
 
   def maximize(self, bounds: dict[str: tuple[float, float]]) \
                -> tuple[np.ndarray, float]:
+    """
+    Find the maximum of the acquisition function within the given bounds and
+    with the current state. Returns both the maximizer and the maximum value.
+    """
     self.logger.debug("Maximizing within bounds %s...", bounds)
 
     # Sample warmup points to evaluate the acquisition
@@ -57,10 +86,8 @@ class AcquisitionFunction(ABC):
       # Find the minimum of minus the acquisition function
       res = minimize(lambda x: -self.evaluate(x), x0=x_try.reshape(1, -1),
                      bounds=bounds_arr, method=self.solver)
-
       if not res.success:
           continue
-
       # Store it if better than previous best
       if -np.squeeze(res.fun) >= max_acq:
           x_max = res.x
