@@ -84,9 +84,12 @@ class HyperqueueJobSubmitter(JobSubmitter):
     self.logger.info("Submitting %s", hq_cmd)
     self.logger.debug("Output file will be %s", output_file)
     sub = subprocess.run(hq_cmd, capture_output=True)
-    # TODO handle errors in json loading and 'id' access
     output = json.loads(sub.stdout.decode())
-    return output['id']
+    if 'id' in output:
+      return output['id']
+    else:
+      raise RuntimeError("submit() received unexpected output by Hyperqueue:\n"
+                        f"{output}")
 
 
   def get_job_status(self, job_id: int) -> JobStatus:
@@ -94,7 +97,7 @@ class HyperqueueJobSubmitter(JobSubmitter):
     self.logger.debug("Requesting status of job %d", job_id)
     cmd = [self.hq_exec, 'job', 'list', '--all', '--output-mode', 'json']
     sub = subprocess.run(cmd, capture_output=True)
-    # TODO handle errors in json loading and [] accesses
+    # Parse Hyperqueue output to get job status
     output = json.loads(sub.stdout.decode())
     for job in output:
       if job['id'] == job_id:
@@ -114,4 +117,6 @@ class HyperqueueJobSubmitter(JobSubmitter):
         self.logger.debug("Status is %s", status)
         return status
 
-    raise RuntimeError(f"Job id {job_id} not found")
+    raise RuntimeError("get_job_status() received unexpected output by "
+                      f"Hyperqueue while checking status of job {job_id} :\n"
+                      f"{output}")
