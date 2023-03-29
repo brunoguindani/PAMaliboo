@@ -16,6 +16,7 @@ import pandas as pd
 
 
 def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
+  """Separate DataFrame into a y column with the given name, and an X matrix"""
   y = df[y_column].values
   df.drop(y_column, axis=1, inplace=True)
   X = df.values
@@ -23,8 +24,10 @@ def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def dict_to_array(dic: dict[str: tuple[float]]) -> np.ndarray:
+  """Transform a dictionary into a numpy array"""
   return np.array(list(dic.values()))
 
 
 def join_Xy(X: np.ndarray, y: float) -> np.ndarray:
+  """Join horizontally a row (or matrix) X and a value (or column) y"""
   return np.hstack((X, [y]))

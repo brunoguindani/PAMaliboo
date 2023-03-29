@@ -107,9 +107,11 @@ class UpperConfidenceBound(AcquisitionFunction):
     super().__init__(*args, **kwargs)
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
+    """Update state of the acquisition function, e.g. the Gaussian Process"""
     super().update_state(gp, num_iter)
 
   def evaluate(self, x: np.ndarray) -> float:
+    """Evaluate the acquisition function in the given point"""
     mean, std = self.gp.predict(x, return_std=True)
     return mean + self.kappa * std
 
@@ -122,11 +124,13 @@ class ExpectedImprovement(AcquisitionFunction):
     super().__init__(*args, **kwargs)
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
+    """Update state of the acquisition function, e.g. the Gaussian Process"""
     super().update_state(gp, num_iter)
     self.y_max = gp.y_train_.max()
     self.logger.debug("New EI incumbent is %f", self.y_max)
 
   def evaluate(self, x: np.ndarray) -> float:
+    """Evaluate the acquisition function in the given point"""
     mean, std = self.gp.predict(x, return_std=True)
 
     a = (mean - self.y_max - self.xi)

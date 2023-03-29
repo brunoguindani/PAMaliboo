@@ -24,22 +24,40 @@ from .utils import join_Xy
 
 
 class Optimizer:
+  """
+  Main class of the PAMaliboo algorithm.
+
+  This class performs parallel asynchronous Bayesian Optimization (BO). It
+  handles all other objects of the library, most of which must be provided to
+  the constructor, alongside the path to an output folder where databases will
+  be stored.
+  The algorithm implemented is a parallel asynchronous extension of a regular
+  BO algorithm. At each round, it computes the maximizer x of the acquisition
+  function as normal, but instead of directly evaluating the target function
+  with x, it submits the evaluation to a scheduler and moves on with the next
+  iteration, after updating the Gaussian Process. A temporary fake value f' is
+  produced and used by the optimization procedure, which is equal to the
+  current posterior mean of the Gaussian Process evaluated in x. While the
+  actual evaluation f(x) takes place, f' will be used instead. After the
+  evaluation has finished, f' will be replaced by the true value f(x).
+  The class keeps track of which jobs are submitted in a queue. When the size
+  of the queue reaches a maximum parallelism level, no additional job will be
+  submitted until some space in the queue is freed up.
+  """
   def __init__(self, acquisition: AcquisitionFunction,
                      bounds: dict[str: tuple[float, float]],
                      gp: DGPR,
                      job_submitter: JobSubmitter,
                      objective: ObjectiveFunction,
                      output_folder: str):
-    # Initialize logger
-    self.logger = logging.getLogger(__name__)
-
-    # Set other objects
+    # Initialize objects
     self.acquisition = acquisition
     self.bounds = bounds
     self.gp = gp
     self.job_submitter = job_submitter
     self.objective = objective
     self.output_folder = output_folder
+    self.logger = logging.getLogger(__name__)
 
     # Create output folder
     if os.path.exists(self.output_folder):
@@ -55,6 +73,19 @@ class Optimizer:
 
 
   def maximize(self, n_iter: int, parallelism_level: int, timeout: int):
+    """
+    Main function which performs parallel asynchronous Bayesian Optimization.
+
+    It initializes three databases which contain useful information: the jobs
+    queue, the set of real points evaluated (without fake points), and other
+    optimization information such as values of the acquisition function.
+
+    Parameters
+    ----------
+    n_iter: number of iterations of the algorithm
+    parallelism_level: maximum number of jobs running at the same time
+    timeout: waiting period in seconds if the queue is full
+    """
     self.logger.debug("Initializing auxiliary dataframes in maximize()")
     jobs_queue  = FileDataFrame(os.path.join(self.output_folder,
                                             'jobs_queue.csv'),

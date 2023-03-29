@@ -30,6 +30,12 @@ class JobStatus(Enum):
 
 
 class JobSubmitter(ABC):
+  """
+  Object that submits jobs to a scheduler or similar programs.
+
+  The output of such jobs will be saved to text files in the folder given to
+  the class constructor.
+  """
   def __init__(self, output_folder: str):
     self.logger = logging.getLogger(__name__)
     self.output_folder = output_folder
@@ -42,19 +48,36 @@ class JobSubmitter(ABC):
 
   @abstractmethod
   def submit(self, cmd: list[str], output_file: str) -> int:
+    """
+    Submit a job containing the given command.
+
+    All output from the job will be stored in the given `output_file`. This
+    function returns the identifier (ID) of the submitted job.
+    """
     pass
 
   @abstractmethod
   def get_job_status(self, job_id: int) -> JobStatus:
+    """Get status of job with the given identifier (ID)"""
     pass
 
 
 
 class HyperqueueJobSubmitter(JobSubmitter):
+  """Job submitter for the Hyperqueue library.
+
+  Hyperqueue is a single executable file, whose path is indicated in the
+  `hq_exec` member.
+  """
   hq_exec = 'lib/hq'
 
   def submit(self, cmd: list[str], output_file: str) -> int:
-    """Submit a job using Hyperqueue"""
+    """
+    Submit a job containing the given command.
+
+    All output from the job will be stored in the given `output_file`. This
+    function returns the identifier (ID) of the submitted job.
+    """
     file_path = os.path.join(self.output_folder, output_file)
     hq_cmd = [self.hq_exec, 'submit', '--output-mode', 'json',
               '--stdout', file_path, '--stderr', file_path] + cmd
@@ -67,6 +90,7 @@ class HyperqueueJobSubmitter(JobSubmitter):
 
 
   def get_job_status(self, job_id: int) -> JobStatus:
+    """Get status of job with the given identifier (ID)"""
     self.logger.debug("Requesting status of job %d", job_id)
     cmd = [self.hq_exec, 'job', 'list', '--all', '--output-mode', 'json']
     sub = subprocess.run(cmd, capture_output=True)

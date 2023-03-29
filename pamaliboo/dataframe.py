@@ -18,6 +18,18 @@ import pandas as pd
 
 
 class FileDataFrame:
+  """
+  File-based database.
+
+  This class represents a tabular data structure, but all its contents are
+  saved at all times to a text file, called the database. The path to the
+  database must be provided to the class constructor. Users can exploit the
+  class interface to add and remove individual points to the database. While
+  performing these operations, the database is temporarily treated as a
+  pandas.DataFrame, which is saved to the `self.df` member. Recall at all times
+  the core philosophy of this class: only the content of the database file
+  matters!
+  """
   index_name = 'index'
 
   def __init__(self, file_path: str, *args, **kwargs):
@@ -27,45 +39,50 @@ class FileDataFrame:
     if os.path.exists(self.file_path):
       self.logger.debug("%s exists, reading dataframe from file ignoring args",
                         self.file_path)
-      self.read()
+      self._read()
     else:
       self.logger.debug("%s does not exist, initializing new dataframe with "
                         "args=%s, kwargs=%s", self.file_path, args, kwargs)
       self.df = pd.DataFrame(*args, **kwargs)
-      self.save()
+      self._save()
 
 
-  def read(self) -> None:
+  def __len__(self) -> int:
+    self._read()
+    length = self.df.shape[0]
+    self._save()
+    return length
+
+
+  def _read(self) -> None:
+    """Read the DataFrame from file. Internal use only!"""
     self.df = pd.read_csv(self.file_path, index_col=self.index_name)
 
 
-  def save(self) -> None:
+  def _save(self) -> None:
+    """Save the DataFrame to file. Internal use only!"""
     self.df.to_csv(self.file_path, index_label=self.index_name)
 
 
   def get_df(self) -> pd.DataFrame:
-    self.read()
+    """Return DataFrame object"""
+    self._read()
     return self.df
 
 
   def add_row(self, index: int, row: np.ndarray) -> None:
-    self.read()
+    """Add new row at the given index value"""
+    self._read()
     self.df.loc[index] = row
     self.logger.debug("New row added to %s: %s", self.file_path,
                       self.df.loc[index].to_dict())
-    self.save()
+    self._save()
 
 
   def remove_row(self, index: int) -> None:
-    self.read()
+    """Remove row at the given index value"""
+    self._read()
     self.logger.debug("Removing row from %s: %s", self.file_path,
                       self.df.loc[index].to_dict())
     self.df.drop(index, axis=0, inplace=True)
-    self.save()
-
-
-  def __len__(self) -> int:
-    self.read()
-    length = self.df.shape[0]
-    self.save()
-    return length
+    self._save()
