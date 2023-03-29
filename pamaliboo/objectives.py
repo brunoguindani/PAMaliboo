@@ -47,7 +47,7 @@ class DummyObjective(ObjectiveFunction):
 
   def execution_command(self, x: np.ndarray) -> list[str]:
     """Return the command to execute the target with the given configuration"""
-    return ['./dummy.sh', str(x[0]), str(x[1])]
+    return ['resources/dummy.sh', str(x[0]), str(x[1])]
 
   def parse_and_evaluate(self, output_file: str) -> float:
     """Parse the given output file and return the function evaluation"""

@@ -13,3 +13,7 @@ __pycache__
 # Output files
 *.csv
 *.stdout
+
+# Keep files for dummy example
+!dummy.sh
+!dummy_initial.csv

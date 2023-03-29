@@ -20,7 +20,7 @@ debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 database_path = os.path.join(output_folder, database)
 if os.path.exists(database_path):
   os.remove(database_path)
-copyfile('outputs/dummy_initial.local.csv', database_path)
+copyfile('resources/dummy_initial.csv', database_path)
 queue_path = os.path.join(output_folder, 'jobs_queue.csv')
 if os.path.exists(queue_path):
   os.remove(queue_path)
