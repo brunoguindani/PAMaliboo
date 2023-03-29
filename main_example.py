@@ -32,7 +32,7 @@ if os.path.exists(real_points_path):
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
 # Initialize library objects
-acq = UpperConfidenceBound()
+acq = UpperConfidenceBound(maximize_n_warmup=10, maximize_n_iter=100)
 bounds = {'x1': (-20, 20), 'x2': (-20, 20)}
 gp = DGPR(database_path, feature_names=['f1', 'f2'])
 gp.fit()
