@@ -56,12 +56,14 @@ class Optimizer:
 
   def maximize(self, n_iter: int, parallelism_level: int, timeout: int):
     self.logger.debug("Initializing auxiliary dataframes in maximize()")
-    jobs_queue = FileDataFrame(os.path.join(self.output_folder,
+    jobs_queue  = FileDataFrame(os.path.join(self.output_folder,
                                             'jobs_queue.csv'),
-                               columns=['path', 'iteration'])
+                                columns=['path', 'iteration'])
     real_points = FileDataFrame(os.path.join(self.output_folder,
                                              'real_points.csv'),
                                 columns=self.gp.database_columns)
+    other_info  = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
+                                columns=['acquisition'])
     self.logger.debug("Done")
 
     curr_iter = 0
@@ -70,8 +72,10 @@ class Optimizer:
       self.logger.info("Starting iteration %d", curr_iter)
       # Find next point to be evaluated
       self.acquisition.update_state(self.gp, curr_iter)
-      # TODO collect acq_value in a database (?)
       x_new, acq_value = self.acquisition.maximize(self.bounds)
+
+      # Record additional information
+      other_info.add_row(curr_iter, [acq_value])
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
