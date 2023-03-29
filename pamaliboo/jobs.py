@@ -14,6 +14,7 @@ limitations under the License.
 from abc import ABC, abstractmethod
 from enum import Enum
 import json
+import logging
 import os
 import subprocess
 import warnings
@@ -30,8 +31,14 @@ class JobStatus(Enum):
 
 class JobSubmitter(ABC):
   def __init__(self, output_folder: str):
+    self.logger = logging.getLogger(__name__)
     self.output_folder = output_folder
-    os.makedirs(self.output_folder, exist_ok=True)
+    self.logger.debug("Initializing %s", self.__class__.__name__)
+    if os.path.exists(self.output_folder):
+      self.logger.debug("Output folder %s already exists", self.output_folder)
+    else:
+      os.makedirs(self.output_folder)
+      self.logger.debug("Created output folder %s", self.output_folder)
 
   @abstractmethod
   def submit(self, cmd: list[str], output_file: str) -> int:
@@ -51,6 +58,8 @@ class HyperqueueJobSubmitter(JobSubmitter):
     file_path = os.path.join(self.output_folder, output_file)
     hq_cmd = [self.hq_exec, 'submit', '--output-mode', 'json',
               '--stdout', file_path, '--stderr', file_path] + cmd
+    self.logger.info("Submitting %s", hq_cmd)
+    self.logger.debug("Output file will be %s", output_file)
     sub = subprocess.run(hq_cmd, capture_output=True)
     # TODO handle errors in json loading and 'id' access
     output = json.loads(sub.stdout.decode())
@@ -58,6 +67,7 @@ class HyperqueueJobSubmitter(JobSubmitter):
 
 
   def get_job_status(self, job_id: int) -> JobStatus:
+    self.logger.debug("Requesting status of job %d", job_id)
     cmd = [self.hq_exec, 'job', 'list', '--all', '--output-mode', 'json']
     sub = subprocess.run(cmd, capture_output=True)
     # TODO handle errors in json loading and [] accesses
@@ -66,16 +76,18 @@ class HyperqueueJobSubmitter(JobSubmitter):
       if job['id'] == job_id:
         job_stats = job['task_stats']
         if job_stats['canceled'] == 1:
-          return JobStatus.CANCELED
+          status = JobStatus.CANCELED
         elif job_stats['failed'] == 1:
-          return JobStatus.FAILED
+          status = JobStatus.FAILED
         elif job_stats['finished'] == 1:
-          return JobStatus.FINISHED
+          status = JobStatus.FINISHED
         elif job_stats['running'] == 1:
-          return JobStatus.RUNNING
+          status = JobStatus.RUNNING
         elif job_stats['waiting'] == 1:
-          return JobStatus.WAITING
+          status = JobStatus.WAITING
         else:
-          return JobStatus.OTHER
+          status = JobStatus.OTHER
+        self.logger.debug("Status is %s", status)
+        return status
 
     raise RuntimeError(f"Job id {job_id} not found")

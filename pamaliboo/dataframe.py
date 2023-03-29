@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 import numpy as np
 import os
 import pandas as pd
@@ -20,11 +21,16 @@ class FileDataFrame:
   index_name = 'index'
 
   def __init__(self, file_path: str, *args, **kwargs):
+    self.logger = logging.getLogger(__name__)
     self.file_path = file_path
 
     if os.path.exists(self.file_path):
+      self.logger.debug("%s exists, reading dataframe from file ignoring args",
+                        self.file_path)
       self.read()
     else:
+      self.logger.debug("%s does not exist, initializing new dataframe with "
+                        "args=%s, kwargs=%s", self.file_path, args, kwargs)
       self.df = pd.DataFrame(*args, **kwargs)
       self.save()
 
@@ -45,11 +51,15 @@ class FileDataFrame:
   def add_row(self, index: int, row: np.ndarray) -> None:
     self.read()
     self.df.loc[index] = row
+    self.logger.debug("New row added to %s: %s", self.file_path,
+                      self.df.loc[index].to_dict())
     self.save()
 
 
   def remove_row(self, index: int) -> None:
     self.read()
+    self.logger.debug("Removing row from %s: %s", self.file_path,
+                      self.df.loc[index].to_dict())
     self.df.drop(index, axis=0, inplace=True)
     self.save()
 

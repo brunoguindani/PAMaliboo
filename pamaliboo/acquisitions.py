@@ -12,14 +12,19 @@ limitations under the License.
 """
 
 from abc import ABC, abstractmethod
+import logging
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+
 from .utils import dict_to_array
 
 
 class AcquisitionFunction(ABC):
+  def __init__(self):
+    self.logger = logging.getLogger(__name__)
+
   def update_state(self, gp: GPR, num_iter: int) -> None:
     self.gp = gp
 
@@ -29,6 +34,7 @@ class AcquisitionFunction(ABC):
 
   def maximize(self, bounds: dict[str: tuple[float, float]]) \
                -> tuple[np.ndarray, float]:
+    self.logger.debug("Maximizing...")
     # TODO copy from MALIBOO acq_max() and update
     n_warmup = 10
     n_iter = 100
@@ -58,7 +64,10 @@ class AcquisitionFunction(ABC):
           x_max = res.x
           max_acq = -np.squeeze(res.fun)
 
-    return np.clip(x_max, bounds_arr[:, 0], bounds_arr[:, 1]), max_acq
+    x_ret = np.clip(x_max, bounds_arr[:, 0], bounds_arr[:, 1])
+    self.logger.debug("Maximizer is %s, with acquisition value %f", x_ret,
+                                                                    max_acq)
+    return x_ret, max_acq
 
 
 class UpperConfidenceBound(AcquisitionFunction):
@@ -66,6 +75,7 @@ class UpperConfidenceBound(AcquisitionFunction):
 
   def __init__(self, kappa: float = 2.576):
     self.kappa = kappa
+    super().__init__()
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
     super().update_state(gp, num_iter)
@@ -80,10 +90,12 @@ class ExpectedImprovement(AcquisitionFunction):
 
   def __init__(self, xi: float = 0.0):
     self.xi = xi
+    super().__init__()
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
     super().update_state(gp, num_iter)
     self.y_max = gp.y_train_.max()
+    self.logger.debug("New EI incumbent is %f", self.y_max)
 
   def evaluate(self, x: np.ndarray) -> float:
     mean, std = self.gp.predict(x, return_std=True)

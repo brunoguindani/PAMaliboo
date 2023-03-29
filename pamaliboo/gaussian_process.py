@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 import numpy as np
 import pandas as pd
 from pandas.errors import EmptyDataError
@@ -48,6 +49,11 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     feature_names: column names to be used in the database
     kernel: kernel object for the Gaussian Process prior
     """
+    self.logger = logging.getLogger(__name__)
+    self.logger.debug("Initializing DGPR with database=%s, feature_names=%s, "
+                      "kernel=%s, args=%s, kwargs=%s", database, feature_names,
+                      kernel, args, kwargs)
+
     super().__init__(kernel=kernel, *args, **kwargs)
 
     self.database_path = database
@@ -68,6 +74,8 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     """
     df = self.database.get_df()
     self.X_train_, self.y_train_ = df_to_Xy(df, self.target_column)
+    self.logger.debug("Setting X_train_ (shape %s) and y_train (shape %s)",
+                      self.X_train_.shape, self.y_train_.shape)
 
 
   def add_point(self, index: int, X: np.ndarray, y: float) -> None:
@@ -75,6 +83,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     Update database with a new point having data X and target value y
     """
     row = join_Xy(X, y)
+    self.logger.debug("Adding point %s with index %d", row, index)
     self.database.add_row(index, row)
 
 
@@ -82,6 +91,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     """
     Update database by removing the point with the given index
     """
+    self.logger.debug("Removing point with index %d", index)
     self.database.remove_row(index)
 
 

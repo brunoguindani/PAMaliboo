@@ -12,10 +12,14 @@ limitations under the License.
 """
 
 from abc import ABC, abstractmethod
+import logging
 import numpy as np
 
 
 class ObjectiveFunction(ABC):
+  def __init__(self):
+    self.logger = logging.getLogger(__name__)
+
   @abstractmethod
   def execution_command(self, x: np.ndarray) -> list[str]:
     pass
@@ -26,6 +30,9 @@ class ObjectiveFunction(ABC):
 
 
 class DummyObjective(ObjectiveFunction):
+  def __init__(self):
+    super().__init__()
+
   def execution_command(self, x: np.ndarray) -> list[str]:
     return ['./dummy.sh', str(x[0]), str(x[1])]
 
@@ -36,6 +43,9 @@ class DummyObjective(ObjectiveFunction):
 
 
 class LigenDummyObjectiveFunction(ObjectiveFunction):
+  def __init__(self):
+    super().__init__()
+
   def execution_command(self, x: np.ndarray) -> list[str]:
     return ['./ligen.sh'] + [str(_) for _ in x]
 

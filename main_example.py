@@ -1,6 +1,8 @@
+import logging
 import numpy as np
 import os
 from shutil import copyfile
+import sys
 
 from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
@@ -12,6 +14,7 @@ from pamaliboo.optimizer import Optimizer
 output_folder = 'outputs'
 database = 'dummy.local.csv'
 np.random.seed(42)
+debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 
 # Temporary code to take initialization values and remove temp files
 database_path = os.path.join(output_folder, database)
@@ -25,6 +28,9 @@ real_points_path = os.path.join(output_folder, 'real_points.csv')
 if os.path.exists(real_points_path):
   os.remove(real_points_path)
 
+# Set logging level
+logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+
 # Initialize library objects
 acq = UpperConfidenceBound()
 bounds = {'x1': (-20, 20), 'x2': (-20, 20)}
@@ -33,4 +39,4 @@ gp.fit()
 job_submitter = HyperqueueJobSubmitter(output_folder)
 obj = DummyObjective()
 optimizer = Optimizer(acq, bounds, gp, job_submitter, obj, output_folder)
-optimizer.maximize(n_iter=5, parallelism_level=2, timeout=5)
+optimizer.maximize(n_iter=5, parallelism_level=2, timeout=4)
