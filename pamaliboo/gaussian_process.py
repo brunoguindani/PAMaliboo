@@ -13,7 +13,6 @@ limitations under the License.
 
 import logging
 import numpy as np
-import pandas as pd
 from pandas.errors import EmptyDataError
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
@@ -87,6 +86,17 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     self.database.add_row(index, row)
 
 
+  def get_point(self, index: int) -> np.ndarray:
+    """
+    Return point with the given index from database
+    """
+    db = self.database.get_df()
+    if index in db.index:
+      return db.loc[index].to_numpy()
+    else:
+      raise IndexError(f"Point with index {index} not found")
+
+
   def remove_point(self, index: int) -> None:
     """
     Update database by removing the point with the given index
@@ -109,7 +119,9 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
                                 "Please use the database API to add training "
                                 "data, then call fit() without arguments.")
     self.read_database()
-    return super().fit(self.X_train_, self.y_train_)
+    with warnings.catch_warnings():
+      warnings.simplefilter('ignore')
+      return super().fit(self.X_train_, self.y_train_)
 
 
   def predict(self, X: np.ndarray, return_std: bool = False) \
@@ -118,5 +130,5 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     if len(X.shape) == 1:
       X = X.reshape(1, -1)
     with warnings.catch_warnings():
-      warnings.simplefilter("ignore")
+      warnings.simplefilter('ignore')
       return super().predict(X, return_std=return_std)

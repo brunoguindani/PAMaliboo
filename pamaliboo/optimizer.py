@@ -91,21 +91,23 @@ class Optimizer:
         queue_file, queue_iter = queue_row
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           self.logger.debug("Job %d has finished", queue_id)
-          # Get objective value from output file, then remove the file
+          # Recover objective value from output file and the corresponding x
           output_path = os.path.join(self.job_submitter.output_folder,
                                      queue_file)
           y_real = self.objective.parse_and_evaluate(output_path)
-          self.logger.info("Recovered real objective value %f for job %d",
-                           y_real, queue_id)
+          x_queue = self.gp.get_point(queue_iter)[:-1]
+          self.logger.info("Recovered real objective value %f for job %d, "
+                           "which had x=%s", y_real, queue_id, x_queue)
           os.remove(output_path)
           self.logger.debug("Deleted file %s", output_path)
+
           # Replace fake evaluation with correct one in the GP
           self.logger.debug("Updating point in GP...")
           self.gp.remove_point(queue_iter)
-          self.gp.add_point(queue_iter, x_new, y_real)
+          self.gp.add_point(queue_iter, x_queue, y_real)
 
           self.logger.debug("Recording new real point...")
-          new_real_point = list(join_Xy(x_new, y_real))
+          new_real_point = list(join_Xy(x_queue, y_real))
           real_points.add_row(queue_iter, new_real_point)
 
           self.logger.debug("Removing job %d from queue...", queue_id)
