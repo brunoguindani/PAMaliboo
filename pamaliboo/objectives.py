@@ -17,15 +17,27 @@ import numpy as np
 
 
 class ObjectiveFunction(ABC):
+  """
+  Object representing a target function to be maximized.
+
+  A suitable target function must be able to be executed by a script (even if
+  not Python) which accepts command-line parameters, and must produce an output
+  file which contains (possibly among other things) the function evaluation.
+  This is because this library is thought for the optimization of programs
+  which must be submitted to some scheduler in order to be executed. However,
+  note that nearly any function can be implemented in this form.
+  """
   def __init__(self):
     self.logger = logging.getLogger(__name__)
 
   @abstractmethod
   def execution_command(self, x: np.ndarray) -> list[str]:
+    """Return the command to execute the target with the given configuration"""
     pass
 
   @abstractmethod
   def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse the given output file and return the function evaluation"""
     pass
 
 
@@ -34,9 +46,11 @@ class DummyObjective(ObjectiveFunction):
     super().__init__()
 
   def execution_command(self, x: np.ndarray) -> list[str]:
+    """Return the command to execute the target with the given configuration"""
     return ['./dummy.sh', str(x[0]), str(x[1])]
 
   def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse the given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output = f.read().strip()
     return float(output)
@@ -47,9 +61,11 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     super().__init__()
 
   def execution_command(self, x: np.ndarray) -> list[str]:
+    """Return the command to execute the target with the given configuration"""
     return ['./ligen.sh'] + [str(_) for _ in x]
 
   def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse the given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output_list = f.read().strip().split(',')
     exe_time = float(output_list[11])
