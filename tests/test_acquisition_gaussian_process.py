@@ -11,7 +11,7 @@ from pamaliboo.acquisitions import (UpperConfidenceBound as UCB,
 
 def test_acq_gp():
   # Test GP
-  database = 'temp.local.csv'
+  database = 'tests/temp.local.csv'
   np.random.seed(42)
   x0 = np.array([[3,7]])
   gp = DGPR(database, feature_names=['f1', 'f2'])
