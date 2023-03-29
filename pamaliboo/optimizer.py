@@ -103,11 +103,11 @@ class Optimizer:
           self.logger.debug("Updating point in GP...")
           self.gp.remove_point(queue_iter)
           self.gp.add_point(queue_iter, x_new, y_real)
-          # Record real point in the corresponding dataframe
+
           self.logger.debug("Recording new real point...")
           new_real_point = list(join_Xy(x_new, y_real))
           real_points.add_row(queue_iter, new_real_point)
-          # Remove point from queue
+
           self.logger.debug("Removing job %d from queue...", queue_id)
           jobs_queue.remove_row(queue_id)
 
