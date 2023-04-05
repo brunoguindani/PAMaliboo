@@ -17,26 +17,20 @@ np.random.seed(42)
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 
 # Temporary code to take initialization values and remove temp files
+os.makedirs(output_folder, exist_ok=True)
 database_path = os.path.join(output_folder, database)
-if os.path.exists(database_path):
-  os.remove(database_path)
-copyfile('resources/dummy_initial.csv', database_path)
-queue_path = os.path.join(output_folder, 'jobs_queue.csv')
-if os.path.exists(queue_path):
-  os.remove(queue_path)
-real_points_path = os.path.join(output_folder, 'real_points.csv')
-if os.path.exists(real_points_path):
-  os.remove(real_points_path)
+if not os.path.exists(database_path):
+  copyfile('resources/dummy_initial.csv', database_path)
 
 # Set logging level
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
 # Initialize library objects
 acq = UpperConfidenceBound(maximize_n_warmup=10, maximize_n_iter=100)
-bounds = {'x1': (-20, 20), 'x2': (-20, 20)}
+bounds = {'x1': (-5, 5), 'x2': (-5, 5)}
 gp = DGPR(database_path, feature_names=['f1', 'f2'])
 gp.fit()
 job_submitter = HyperqueueJobSubmitter(output_folder)
 obj = DummyObjective()
 optimizer = Optimizer(acq, bounds, gp, job_submitter, obj, output_folder)
-optimizer.maximize(n_iter=5, parallelism_level=2, timeout=4)
+optimizer.maximize(n_iter=40, parallelism_level=2, timeout=3)
