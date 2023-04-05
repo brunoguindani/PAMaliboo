@@ -32,7 +32,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
   FileDataFrame class. Users can exploit the interface of this class to add or
   remove individual points to the database.
   """
-  default_kernel = Matern(nu=2.5) + WhiteKernel()
+  default_kernel = Matern(nu=2.5)
   index_column = 'index'
   target_column = 'target'
 
