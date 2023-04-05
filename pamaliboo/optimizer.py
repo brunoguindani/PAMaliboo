@@ -12,6 +12,7 @@ limitations under the License.
 """
 
 import logging
+import numpy as np
 import os
 import time
 
@@ -104,6 +105,8 @@ class Optimizer:
       # Find next point to be evaluated
       self.acquisition.update_state(self.gp, curr_iter)
       x_new, acq_value = self.acquisition.maximize(self.bounds)
+      # Round decimal places, mainly to avoid scientific notation
+      x_new = np.round(x_new, 5)
 
       # Record additional information
       other_info.add_row(curr_iter, [acq_value])
