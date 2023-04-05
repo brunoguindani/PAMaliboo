@@ -118,5 +118,5 @@ class HyperqueueJobSubmitter(JobSubmitter):
         return status
 
     raise RuntimeError("get_job_status() received unexpected output by "
-                      f"Hyperqueue while checking status of job {job_id} :\n"
+                      f"Hyperqueue while checking status of job {job_id}:\n"
                       f"{output}")

@@ -86,7 +86,7 @@ class Optimizer:
     parallelism_level: maximum number of jobs running at the same time
     timeout: waiting period in seconds if the queue is full
     """
-    self.logger.debug("Initializing auxiliary dataframes in maximize()")
+    self.logger.debug("Initializing auxiliary dataframes in maximize()...")
     jobs_queue  = FileDataFrame(os.path.join(self.output_folder,
                                             'jobs_queue.csv'),
                                 columns=['path', 'iteration'])
