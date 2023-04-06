@@ -100,13 +100,13 @@ class Optimizer:
 
     curr_iter = 0
 
-    while curr_iter <= n_iter:
+    while curr_iter < n_iter:
       # Check for previous interrupted runs
       db_max_idx = self.gp.database.get_df().index.max()
       if curr_iter == 0 and db_max_idx >= 0:
         curr_iter = db_max_idx + 1
         self.logger.info("Recovering iterations up to %d", curr_iter-1)
-        if curr_iter > n_iter:
+        if curr_iter >= n_iter:
           return
 
       self.logger.info("Starting iteration %d", curr_iter)
