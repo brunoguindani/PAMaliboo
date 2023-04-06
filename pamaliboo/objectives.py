@@ -14,6 +14,10 @@ limitations under the License.
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
+import os
+from typing import Optional
+
+from .dataframe import FileDataFrame
 
 
 class ObjectiveFunction(ABC):
@@ -26,9 +30,59 @@ class ObjectiveFunction(ABC):
   This is because this library is thought for the optimization of programs
   which must be submitted to some scheduler in order to be executed. However,
   note that nearly any function can be implemented in this form.
+  The objective can also have a discrete optimization domain. If so, it must be
+  created as a .csv file, and its path must be passed to the constructor as the
+  `domain_file` option.
   """
-  def __init__(self):
+  def __init__(self, domain_file: Optional[str] = None):
     self.logger = logging.getLogger(__name__)
+    self.logger.debug("Initializing ObjectiveFunction with domain_file=%s",
+                      domain_file)
+    if domain_file is not None:
+      if os.path.exists(domain_file):
+        self.domain = FileDataFrame(domain_file)
+      else:
+        raise FileNotFoundError(f"Domain file {domain_file} not found")
+    else:
+      self.domain = None
+
+
+  def get_approximation(self, x: np.ndarray) -> tuple[np.ndarray, int]:
+    """
+    Get closest approximation of x from the optimization domain, wrt L2 norm
+
+    The method fails if no domain was initialized. It returns both the
+    approximation and its index in the domain
+    """
+    if self.domain is None:
+        raise ValueError("Cannot call get_approximation() without a domain")
+
+    min_distance = None
+    approximations = []
+    approximations_idxs = []
+
+    # Recover numpy array for faster looping over rows
+    df = self.domain.get_df()
+    df_np = df.values
+    for idx in range(df_np.shape[0]):
+      row = df_np[idx, :]
+      # Compute L2 distance
+      dist = np.linalg.norm(x - row, 2)
+      if min_distance is None or dist <= min_distance:
+        if dist == min_distance:
+          # One of the tied best approximations
+          approximations.append(row)
+          approximations_idxs.append(df.index[idx])
+        else:
+          # The one new best approximation
+          min_distance = dist
+          approximations = [row]
+          approximations_idxs = [df.index[idx]]
+
+    # If multiple, choose randomly
+    ret_idx = np.random.default_rng().integers(0, len(approximations_idxs))
+    return approximations[ret_idx], approximations_idxs[ret_idx]
+
 
   @abstractmethod
   def execution_command(self, x: np.ndarray) -> list[str]:
@@ -42,9 +96,6 @@ class ObjectiveFunction(ABC):
 
 
 class DummyObjective(ObjectiveFunction):
-  def __init__(self):
-    super().__init__()
-
   def execution_command(self, x: np.ndarray) -> list[str]:
     """Return the command to execute the target with the given configuration"""
     return ['resources/dummy.sh', str(x[0]), str(x[1])]
@@ -57,9 +108,6 @@ class DummyObjective(ObjectiveFunction):
 
 
 class LigenDummyObjectiveFunction(ObjectiveFunction):
-  def __init__(self):
-    super().__init__()
-
   def execution_command(self, x: np.ndarray) -> list[str]:
     """Return the command to execute the target with the given configuration"""
     return ['./ligen.sh'] + [str(_) for _ in x]

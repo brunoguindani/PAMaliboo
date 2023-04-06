@@ -110,11 +110,18 @@ class Optimizer:
           return
 
       self.logger.info("Starting iteration %d", curr_iter)
+
       # Find next point to be evaluated
       self.acquisition.update_state(self.gp, curr_iter)
       x_new, acq_value = self.acquisition.maximize(self.bounds)
       # Round decimal places, mainly to avoid scientific notation
       x_new = np.round(x_new, 5)
+      # Find discrete approximation if required
+      if self.objective.domain is not None:
+        x_appr, idx_appr = self.objective.get_approximation(x_new)
+        self.logger.debug("Approximating %s to %s with index %d",
+                          x_new, x_appr, idx_appr)
+        x_new = x_appr
 
       # Record additional information
       other_info.add_row(curr_iter, [acq_value])
