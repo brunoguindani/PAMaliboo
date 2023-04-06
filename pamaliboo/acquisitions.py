@@ -16,8 +16,10 @@ import logging
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import norm
+from sklearn.base import BaseEstimator
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 
+from .dataframe import FileDataFrame
 from .utils import dict_to_array
 
 
@@ -49,10 +51,16 @@ class AcquisitionFunction(ABC):
     self.logger = logging.getLogger(__name__)
     self.n_warmup = maximize_n_warmup
     self.n_iter = maximize_n_iter
+    self.additional_info = FileDataFrame('outputs/add_info_TODO.csv')
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
     self.gp = gp
+
+  def add_info(self, info: dict[str: float], iteration: int) -> None:
+    """TODO"""
+    info_arr = dict_to_array(info)
+    self.additional_info.add_row(iteration, info_arr)
 
   @abstractmethod
   def evaluate(self, x: np.ndarray) -> float:
@@ -136,3 +144,25 @@ class ExpectedImprovement(AcquisitionFunction):
     a = (mean - self.y_max - self.xi)
     z = a / std
     return a * norm.cdf(z) + std * norm.pdf(z)
+
+
+class ExpectedImprovementMachineLearning(ExpectedImprovement):
+  solver = 'Nelder-Mead'
+
+  def __init__(self, model: BaseEstimator,
+               constraints: dict[str: tuple[float, float]], *args, **kwargs):
+    self.model = model
+    self.constraints = constraints
+    super().__init__(*args, **kwargs)
+
+  def update_state(self, gp: GPR, num_iter: int) -> None:
+    """Update state of the acquisition function, e.g. the Gaussian Process"""
+    # TODO update ML model
+    # TODO find a way to receive the additional information dict
+    super().update_state(gp, num_iter)
+
+  def evaluate(self, x: np.ndarray) -> float:
+    """Evaluate the acquisition function in the given point"""
+    ei = super().evaluate(x)
+    ret = ei  # TODO product with ML indicator
+    return ret
