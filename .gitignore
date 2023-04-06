@@ -16,4 +16,5 @@ __pycache__
 
 # Keep files for dummy example
 !dummy.sh
+!dummy_domain.csv
 !dummy_initial.csv
