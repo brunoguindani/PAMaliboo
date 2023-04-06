@@ -102,10 +102,12 @@ class Optimizer:
 
     while curr_iter <= n_iter:
       # Check for previous interrupted runs
-      info_idx = other_info.get_df().index
-      if curr_iter == 0 and not info_idx.empty:
-        curr_iter = info_idx[-1] + 1
-        self.logger.info("Recovering from iteration %d", curr_iter)
+      db_max_idx = self.gp.database.get_df().index.max()
+      if curr_iter == 0 and db_max_idx >= 0:
+        curr_iter = db_max_idx + 1
+        self.logger.info("Recovering iterations up to %d", curr_iter-1)
+        if curr_iter > n_iter:
+          return
 
       self.logger.info("Starting iteration %d", curr_iter)
       # Find next point to be evaluated
@@ -113,6 +115,9 @@ class Optimizer:
       x_new, acq_value = self.acquisition.maximize(self.bounds)
       # Round decimal places, mainly to avoid scientific notation
       x_new = np.round(x_new, 5)
+
+      # Record additional information
+      other_info.add_row(curr_iter, [acq_value])
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
@@ -162,9 +167,6 @@ class Optimizer:
         self.logger.debug("Maximum parallelism level reached: sleeping for %d "
                           "seconds", timeout)
         time.sleep(timeout)
-
-      # Record additional information
-      other_info.add_row(curr_iter, [acq_value])
 
       # At the end...
       self.logger.debug("End of iteration %d", curr_iter)
