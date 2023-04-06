@@ -94,6 +94,12 @@ class ObjectiveFunction(ABC):
     """Parse the given output file and return the function evaluation"""
     pass
 
+  def parse_additional_info(self, output_file: str) -> dict[str: float]:
+    """
+    Parse the given output file and return additional auxiliary information
+    """
+    return dict()
+
 
 class DummyObjective(ObjectiveFunction):
   def execution_command(self, x: np.ndarray) -> list[str]:
@@ -105,6 +111,16 @@ class DummyObjective(ObjectiveFunction):
     with open(output_file, 'r') as f:
       output = f.read().strip()
     return float(output)
+
+  def parse_additional_info(self, output_file: str) -> dict[str: float]:
+    """
+    Parse the given output file and return additional auxiliary information
+    """
+    with open(output_file, 'r') as f:
+      output = f.read().strip()
+    val = float(output)
+    ret = {'result': val, 'result^2': val**2}
+    return ret
 
 
 class LigenDummyObjectiveFunction(ObjectiveFunction):
