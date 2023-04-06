@@ -95,7 +95,7 @@ class Optimizer:
                                              'real_points.csv'),
                                 columns=self.gp.database_columns)
     other_info  = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
-                                columns=['acquisition'])
+                                columns=['domain_idx', 'acquisition'])
     self.logger.debug("Done")
 
     curr_iter = 0
@@ -112,19 +112,9 @@ class Optimizer:
       self.logger.info("Starting iteration %d", curr_iter)
 
       # Find next point to be evaluated
-      self.acquisition.update_state(self.gp, curr_iter)
-      x_new, acq_value = self.acquisition.maximize(self.bounds)
-      # Round decimal places, mainly to avoid scientific notation
-      x_new = np.round(x_new, 5)
-      # Find discrete approximation if required
-      if self.objective.domain is not None:
-        x_appr, idx_appr = self.objective.get_approximation(x_new)
-        self.logger.debug("Approximating %s to %s with index %d",
-                          x_new, x_appr, idx_appr)
-        x_new = x_appr
-
+      x_new, idx_appr, acq_value = self._find_next_point(curr_iter)
       # Record additional information
-      other_info.add_row(curr_iter, [acq_value])
+      other_info.add_row(curr_iter, [idx_appr, acq_value])
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
@@ -178,3 +168,28 @@ class Optimizer:
       # At the end...
       self.logger.debug("End of iteration %d", curr_iter)
       curr_iter += 1
+
+
+  def _find_next_point(self, curr_iter: int) -> tuple[np.ndarray, int, float]:
+    """
+    Find next point to be evaluated. Internal use only!
+
+    Returns the next point, its index in the optimization domain (if it exists,
+    otherwise returns -curr_iter) and the maximum value of the acquisition
+    function.
+    """
+    # Find maximizer of acquisition function
+    self.acquisition.update_state(self.gp, curr_iter)
+    x_new, acq_value = self.acquisition.maximize(self.bounds)
+    # Round decimal places, mainly to avoid scientific notation
+    x_new = np.round(x_new, 5)
+    # Find discrete approximation if required
+    if self.objective.domain is not None:
+      x_appr, idx_appr = self.objective.get_approximation(x_new)
+      self.logger.debug("Approximating %s to %s with index %d",
+                        x_new, x_appr, idx_appr)
+      x_new = x_appr
+    else:
+      idx_appr = -curr_iter
+
+    return x_new, idx_appr, acq_value
