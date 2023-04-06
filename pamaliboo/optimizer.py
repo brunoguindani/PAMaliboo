@@ -142,6 +142,11 @@ class Optimizer:
           x_queue = self.gp.get_point(queue_iter)[:-1]
           self.logger.info("Recovered real objective value %f for job %d, "
                            "which had x=%s", y_real, queue_id, x_queue)
+          # Recover additional objective information
+          additional_info = self.objective.parse_additional_info(output_path)
+          self.logger.debug("Recovered additional objective information: %s",
+                            additional_info)
+          self.acquisition.add_info(additional_info, queue_iter)
           os.remove(output_path)
           self.logger.debug("Deleted file %s", output_path)
 
