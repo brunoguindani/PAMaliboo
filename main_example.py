@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import os
+import pandas as pd
 from shutil import copyfile
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from sklearn.linear_model import Ridge
@@ -15,18 +16,21 @@ from pamaliboo.optimizer import Optimizer
 
 
 output_folder = 'outputs'
-database = 'dummy.local.csv'
-additional_info = 'dummy_add_info.csv'
+database = 'dummy.csv'
+history = 'history.csv'
 np.random.seed(42)
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
+
 
 # Temporary code to take initialization values and remove temp files
 os.makedirs(output_folder, exist_ok=True)
 database_path = os.path.join(output_folder, database)
-additional_info_path = os.path.join(output_folder, additional_info)
+history_path = os.path.join(output_folder, history)
 if not os.path.exists(database_path):
-  copyfile('resources/dummy_initial.csv', database_path)
-  copyfile('resources/dummy_add_info_initial.csv', additional_info_path)
+  copyfile('resources/dummy_initial.csv', history_path)
+  db = pd.read_csv(history_path, index_col='index')[['f1','f2','target']]
+  db.to_csv(database_path, index_label='index')
+
 
 # Set logging level
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
@@ -34,8 +38,8 @@ logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 # Initialize library objects
 constraints = {'result': (2, 6), 'result^2': (4, 36)}
 model = Ridge()
-acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, models=[model, model],
-           constraints=constraints, additional_info_path=additional_info_path)
+acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
+           models=[model, model])
 bounds = {'x1': (0, 5), 'x2': (0, 5)}
 kernel = Matern(nu=2.5)  # + WhiteKernel(noise_level_bounds=(0.2, 2))
 gp = DGPR(database_path, feature_names=['f1', 'f2'], kernel=kernel)
