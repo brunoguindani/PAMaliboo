@@ -22,6 +22,7 @@ os.makedirs(output_folder, exist_ok=True)
 database_path = os.path.join(output_folder, database)
 if not os.path.exists(database_path):
   copyfile('resources/dummy_initial.csv', database_path)
+  copyfile('resources/dummy_add_info_initial.csv', database_path)
 
 # Set logging level
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
