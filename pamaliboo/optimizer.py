@@ -91,7 +91,7 @@ class Optimizer:
     """
     self.logger.debug("Initializing auxiliary dataframes in maximize()...")
     jobs_queue  = FileDataFrame(os.path.join(self.output_folder,
-                                            'jobs_queue.csv'),
+                                            'queue.csv'),
                                 columns=['path', 'iteration'])
     history = FileDataFrame(os.path.join(self.output_folder, 'history.csv'))
     other_info  = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
