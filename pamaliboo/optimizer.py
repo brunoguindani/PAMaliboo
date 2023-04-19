@@ -124,7 +124,7 @@ class Optimizer:
       jobs_queue.add_row(job_id, [output_file, curr_iter])
 
       # Add fake objective value to the GP
-      y_fake = self.gp.predict(x_new, return_std=False)[0]
+      y_fake = self._get_fake_objective_value(x_new)
       self.logger.info("Fake prediction for %s is %f", x_new, y_fake)
       self.gp.add_point(curr_iter, x_new, y_fake)
 
@@ -199,3 +199,13 @@ class Optimizer:
       idx_appr = -curr_iter
 
     return x_new, idx_appr, acq_value
+
+
+  def _get_fake_objective_value(self, x: np.ndarray) -> float:
+    """
+    Return fake value of the objective function computed in x
+
+    In this implementation, the fake value is the current posterior mean of the
+    Gaussian Process evaluated in x.
+    """
+    return self.gp.predict(x, return_std=False)[0]
