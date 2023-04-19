@@ -192,7 +192,9 @@ class Optimizer:
     function.
     """
     # Find maximizer of acquisition function
+    self.logger.debug("Updating state of acquisition function...")
     self.acquisition.update_state(self.gp, self.history, curr_iter)
+    self.logger.debug("Done")
     x_new, acq_value = self.acquisition.maximize(self.bounds)
     # Round decimal places, mainly to avoid scientific notation
     x_new = np.round(x_new, 5)
