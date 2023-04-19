@@ -128,7 +128,7 @@ class Optimizer:
           additional_info = self.objective.parse_additional_info(output_path)
           self.logger.debug("Recovered additional objective information: %s",
                             additional_info)
-          #self.acquisition.add_info(additional_info, queue_iter)
+          self.acquisition.add_info(additional_info, queue_iter)
           os.remove(output_path)
           self.logger.debug("Deleted file %s", output_path)
 
