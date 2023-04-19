@@ -110,6 +110,48 @@ class Optimizer:
         if curr_iter >= n_iter:
           return
 
+      self.logger.debug("Recovering finished jobs (if any)")
+      queue_df = jobs_queue.get_df()
+      self.logger.debug("Current queue status: %s", queue_df.to_dict())
+      for queue_id, queue_row in queue_df.iterrows():
+        queue_file, queue_iter = queue_row
+        if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
+          self.logger.debug("Job %d has finished", queue_id)
+          # Recover objective value from output file and the corresponding x
+          output_path = os.path.join(self.job_submitter.output_folder,
+                                     queue_file)
+          y_real = self.objective.parse_and_evaluate(output_path)
+          x_queue = self.gp.get_point(queue_iter)[:-1]
+          self.logger.info("Recovered real objective value %f for job %d, "
+                           "which had x=%s", y_real, queue_id, x_queue)
+          # Recover additional objective information
+          additional_info = self.objective.parse_additional_info(output_path)
+          self.logger.debug("Recovered additional objective information: %s",
+                            additional_info)
+          #self.acquisition.add_info(additional_info, queue_iter)
+          os.remove(output_path)
+          self.logger.debug("Deleted file %s", output_path)
+
+          # Replace fake evaluation with correct one in the GP
+          self.logger.debug("Updating point in GP...")
+          self.gp.remove_point(queue_iter)
+          self.gp.add_point(queue_iter, x_queue, y_real)
+
+          self.logger.debug("Recording new real point...")
+          new_real_point = list(join_Xy(x_queue, y_real))
+          real_points.add_row(queue_iter, new_real_point)
+
+          self.logger.debug("Removing job %d from queue...", queue_id)
+          jobs_queue.remove_row(queue_id)
+
+      self.logger.debug("Recovering of finished jobs completed")
+      # Skip iteration if queue is full
+      if len(jobs_queue) == parallelism_level:
+        self.logger.debug("Maximum parallelism level reached: sleeping for %d "
+                          "seconds", timeout)
+        time.sleep(timeout)
+        continue
+
       self.logger.info("Starting iteration %d", curr_iter)
 
       # Find next point to be evaluated
@@ -128,48 +170,9 @@ class Optimizer:
       self.logger.info("Fake prediction for %s is %f", x_new, y_fake)
       self.gp.add_point(curr_iter, x_new, y_fake)
 
-      # Loop on finished evaluations (if any)
-      queue_df = jobs_queue.get_df()
-      self.logger.debug("Current queue status: %s", queue_df.to_dict())
-      for queue_id, queue_row in queue_df.iterrows():
-        queue_file, queue_iter = queue_row
-        if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
-          self.logger.debug("Job %d has finished", queue_id)
-          # Recover objective value from output file and the corresponding x
-          output_path = os.path.join(self.job_submitter.output_folder,
-                                     queue_file)
-          y_real = self.objective.parse_and_evaluate(output_path)
-          x_queue = self.gp.get_point(queue_iter)[:-1]
-          self.logger.info("Recovered real objective value %f for job %d, "
-                           "which had x=%s", y_real, queue_id, x_queue)
-          # Recover additional objective information
-          additional_info = self.objective.parse_additional_info(output_path)
-          self.logger.debug("Recovered additional objective information: %s",
-                            additional_info)
-          self.acquisition.add_info(additional_info, queue_iter)
-          os.remove(output_path)
-          self.logger.debug("Deleted file %s", output_path)
-
-          # Replace fake evaluation with correct one in the GP
-          self.logger.debug("Updating point in GP...")
-          self.gp.remove_point(queue_iter)
-          self.gp.add_point(queue_iter, x_queue, y_real)
-
-          self.logger.debug("Recording new real point...")
-          new_real_point = list(join_Xy(x_queue, y_real))
-          real_points.add_row(queue_iter, new_real_point)
-
-          self.logger.debug("Removing job %d from queue...", queue_id)
-          jobs_queue.remove_row(queue_id)
-
       # Fit Gaussian Process
       self.logger.debug("Updating GP...")
       self.gp.fit()
-
-      if len(jobs_queue) == parallelism_level:
-        self.logger.debug("Maximum parallelism level reached: sleeping for %d "
-                          "seconds", timeout)
-        time.sleep(timeout)
 
       # At the end...
       self.logger.debug("End of iteration %d", curr_iter)
