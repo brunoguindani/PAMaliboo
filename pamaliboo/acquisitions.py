@@ -160,10 +160,10 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
     """Update state of the acquisition function, e.g. the Gaussian Process"""
     # Get real historical data for the training of the models
     history_df = history.get_df()
-    self.logger.debug("Training ML models:")
+    self.logger.debug("Training ML models")
     for key in self.models:
       self.logger.debug("On column %s...", key)
-      X = history_df[gp.database_columns]
+      X = history_df[gp.feature_names]
       y = history_df[key]
       self.models[key].fit(X, y)
       self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
@@ -173,6 +173,13 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
 
   def evaluate(self, x: np.ndarray) -> float:
     """Evaluate the acquisition function in the given point"""
-    ei = super().evaluate(x)
-    ret = ei  # TODO product with ML indicator
+    # Compute regular EI
+    ret = super().evaluate(x)
+    # For each constrained quantity, compute indicator of its ML prediction
+    # respecting the constraints
+    for key, bounds in self.constraints.items():
+      lb, ub = bounds
+      q_pred = self.models[key].predict(x)
+      indicator = np.array([lb <= q <= ub for q in q_pred])
+      ret *= indicator
     return ret
