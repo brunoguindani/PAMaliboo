@@ -69,12 +69,12 @@ class Optimizer:
       self.logger.debug("Created output folder %s", self.output_folder)
 
 
-  def submit_initial_points(self, n_points: int, timeout: int):
+  def submit_initial_points(self, n_points: int, timeout: float):
     # TODO
     pass
 
 
-  def maximize(self, n_iter: int, parallelism_level: int, timeout: int):
+  def maximize(self, n_iter: int, parallelism_level: int, timeout: float):
     """
     Main function which performs parallel asynchronous Bayesian Optimization.
 
