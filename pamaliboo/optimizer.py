@@ -90,7 +90,8 @@ class Optimizer:
     timeout: waiting period in seconds if the queue is full
     """
     self.logger.debug("Initializing auxiliary dataframes in maximize()...")
-    history = FileDataFrame(os.path.join(self.output_folder, 'history.csv'))
+    self.history = FileDataFrame(os.path.join(self.output_folder,
+                                              'history.csv'))
     jobs_queue = FileDataFrame(os.path.join(self.output_folder, 'queue.csv'),
                                columns=['path', 'iteration'])
     other_info = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
@@ -138,7 +139,7 @@ class Optimizer:
           new_real_point = join_Xy(x_queue, y_real)
           new_add_info = dict_to_array(additional_info)
           new_row = np.hstack((new_real_point, new_add_info))
-          history.add_row(queue_iter, new_row)
+          self.history.add_row(queue_iter, new_row)
 
           self.logger.debug("Removing job %d from queue...", queue_id)
           jobs_queue.remove_row(queue_id)
@@ -177,6 +178,10 @@ class Optimizer:
       self.logger.debug("End of iteration %d", curr_iter)
       curr_iter += 1
 
+    # Clean up after ending the loop
+    self.history = None
+    self.logger.info("End of optimization algorithm")
+
 
   def _find_next_point(self, curr_iter: int) -> tuple[np.ndarray, int, float]:
     """
@@ -187,7 +192,7 @@ class Optimizer:
     function.
     """
     # Find maximizer of acquisition function
-    self.acquisition.update_state(self.gp, curr_iter)
+    self.acquisition.update_state(self.gp, self.history, curr_iter)
     x_new, acq_value = self.acquisition.maximize(self.bounds)
     # Round decimal places, mainly to avoid scientific notation
     x_new = np.round(x_new, 5)

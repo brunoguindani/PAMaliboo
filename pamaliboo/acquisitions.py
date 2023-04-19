@@ -52,7 +52,8 @@ class AcquisitionFunction(ABC):
     self.n_warmup = maximize_n_warmup
     self.n_iter = maximize_n_iter
 
-  def update_state(self, gp: GPR, num_iter: int) -> None:
+  def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                   -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
     self.gp = gp
 
@@ -108,9 +109,10 @@ class UpperConfidenceBound(AcquisitionFunction):
     self.kappa = kappa
     super().__init__(*args, **kwargs)
 
-  def update_state(self, gp: GPR, num_iter: int) -> None:
+  def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                   -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
-    super().update_state(gp, num_iter)
+    super().update_state(gp, history, num_iter)
 
   def evaluate(self, x: np.ndarray) -> float:
     """Evaluate the acquisition function in the given point"""
@@ -125,9 +127,10 @@ class ExpectedImprovement(AcquisitionFunction):
     self.xi = xi
     super().__init__(*args, **kwargs)
 
-  def update_state(self, gp: GPR, num_iter: int) -> None:
+  def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                   -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
-    super().update_state(gp, num_iter)
+    super().update_state(gp, history, num_iter)
     self.y_max = gp.y_train_.max()
     self.logger.debug("New EI incumbent is %f", self.y_max)
 
@@ -152,16 +155,21 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
     self.constraints = constraints
     self.models = dict(zip(constraints.keys(), models))
 
-  def update_state(self, gp: GPR, num_iter: int) -> None:
+  def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                   -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
+    # Get real historical data for the training of the models
+    history_df = history.get_df()
     self.logger.debug("Training ML models:")
     for key in self.models:
       self.logger.debug("On column %s...", key)
-      # X = gp.X_train_  # TODO get real points database
-      # y = self.additional_info.get_df()[key]
-      # self.models[key].fit(X, y)
+      X = history_df[gp.database_columns]
+      y = history_df[key]
+      self.models[key].fit(X, y)
+      self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
+                                                                   y.shape)
     self.logger.debug("ML models trained successfully")
-    super().update_state(gp, num_iter)
+    super().update_state(gp, history, num_iter)
 
   def evaluate(self, x: np.ndarray) -> float:
     """Evaluate the acquisition function in the given point"""
