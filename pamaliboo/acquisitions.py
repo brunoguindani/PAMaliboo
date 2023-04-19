@@ -51,7 +51,6 @@ class AcquisitionFunction(ABC):
     self.logger = logging.getLogger(__name__)
     self.n_warmup = maximize_n_warmup
     self.n_iter = maximize_n_iter
-    self.additional_info = FileDataFrame('outputs/add_info_TODO.csv')
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
@@ -149,16 +148,25 @@ class ExpectedImprovement(AcquisitionFunction):
 class ExpectedImprovementMachineLearning(ExpectedImprovement):
   solver = 'Nelder-Mead'
 
-  def __init__(self, model: BaseEstimator,
-               constraints: dict[str: tuple[float, float]], *args, **kwargs):
-    self.model = model
-    self.constraints = constraints
+  def __init__(self, constraints: dict[str: tuple[float, float]],
+               models: list[BaseEstimator],
+               additional_info_path: str, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    self.logger.debug("Initializing EIML with constraints=%s, models=%s, "
+                      "additional_info_path=%s, args=%s, kwargs=%s",
+                      constraints, models, additional_info_path, args, kwargs)
+    self.constraints = constraints
+    self.models = dict(zip(constraints.keys(), models))
+    self.additional_info = FileDataFrame(additional_info_path)
 
   def update_state(self, gp: GPR, num_iter: int) -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
-    # TODO update ML model
-    # TODO find a way to receive the additional information dict
+    self.logger.debug("Training ML models:")
+    for key in self.models:
+      self.logger.debug("On column %s...", key)
+      y_train = self.additional_info.get_df()[key]
+      self.models[key].fit(gp.X_train_, y_train)
+    self.logger.debug("ML models trained successfully")
     super().update_state(gp, num_iter)
 
   def evaluate(self, x: np.ndarray) -> float:
