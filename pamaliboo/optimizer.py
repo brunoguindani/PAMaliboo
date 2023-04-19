@@ -90,12 +90,11 @@ class Optimizer:
     timeout: waiting period in seconds if the queue is full
     """
     self.logger.debug("Initializing auxiliary dataframes in maximize()...")
-    jobs_queue  = FileDataFrame(os.path.join(self.output_folder,
-                                            'queue.csv'),
-                                columns=['path', 'iteration'])
     history = FileDataFrame(os.path.join(self.output_folder, 'history.csv'))
-    other_info  = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
-                                columns=['domain_idx', 'acquisition'])
+    jobs_queue = FileDataFrame(os.path.join(self.output_folder, 'queue.csv'),
+                               columns=['path', 'iteration'])
+    other_info = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
+                               columns=['domain_idx', 'acquisition'])
     self.logger.debug("Done")
 
     curr_iter = 0
