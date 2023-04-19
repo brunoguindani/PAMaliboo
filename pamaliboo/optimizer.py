@@ -205,7 +205,7 @@ class Optimizer:
 
   def _get_fake_objective_value(self, x: np.ndarray) -> float:
     """
-    Return fake value of the objective function computed in x
+    Return fake value of objective function computed in x. Internal use only!
 
     In this implementation, the fake value is the current posterior mean of the
     Gaussian Process evaluated in x.
