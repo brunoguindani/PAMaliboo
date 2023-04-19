@@ -16,7 +16,7 @@ from pamaliboo.optimizer import Optimizer
 
 
 output_folder = 'outputs'
-database = 'dummy.csv'
+database = 'gp_database.csv'
 history = 'history.csv'
 np.random.seed(42)
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
