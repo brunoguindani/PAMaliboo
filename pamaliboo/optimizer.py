@@ -51,6 +51,7 @@ class Optimizer:
   history_filename = 'history.csv'
   other_info_filename = 'info.csv'
   queue_filename = 'queue.csv'
+  output_file_fmt = 'iter_{}.stdout'
 
   def __init__(self, acquisition: AcquisitionFunction,
                      bounds: dict[str: tuple[float, float]],
@@ -186,7 +187,7 @@ class Optimizer:
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
-      output_file = f"iter_{curr_iter}.stdout"
+      output_file = self.output_file_fmt.format(curr_iter)
       job_id = self.job_submitter.submit(cmd, output_file)
       jobs_queue.add_row(job_id, [output_file, curr_iter])
 
