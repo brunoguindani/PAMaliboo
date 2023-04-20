@@ -48,6 +48,10 @@ class Optimizer:
   repeat, and no new jobs will be submitted, until some space in the queue is
   freed up.
   """
+  history_filename = 'history.csv'
+  other_info_filename = 'info.csv'
+  queue_filename = 'queue.csv'
+
   def __init__(self, acquisition: AcquisitionFunction,
                      bounds: dict[str: tuple[float, float]],
                      gp: DGPR,
@@ -81,8 +85,8 @@ class Optimizer:
       # Initialize history database from given file
       self.logger.info("Setting initial points...")
       df = pd.read_csv(init_history_path, index_col=FileDataFrame.index_name)
-      history = FileDataFrame(os.path.join(self.output_folder, 'history.csv'),
-                              data=df)
+      history = FileDataFrame(os.path.join(self.output_folder,
+                                           self.history_filename), data=df)
       df_gp = df[self.gp.database_columns]
       df_gp.to_csv(self.gp.database_path,
                    index_label=FileDataFrame.index_name)
@@ -109,10 +113,12 @@ class Optimizer:
     """
     self.logger.debug("Initializing auxiliary dataframes in maximize()...")
     self.history = FileDataFrame(os.path.join(self.output_folder,
-                                              'history.csv'))
-    jobs_queue = FileDataFrame(os.path.join(self.output_folder, 'queue.csv'),
+                                              self.history_filename))
+    jobs_queue = FileDataFrame(os.path.join(self.output_folder,
+                                            self.queue_filename),
                                columns=['path', 'iteration'])
-    other_info = FileDataFrame(os.path.join(self.output_folder, 'info.csv'),
+    other_info = FileDataFrame(os.path.join(self.output_folder,
+                                            self.other_info_filename),
                                columns=['domain_idx', 'acquisition'])
     self.logger.debug("Done")
 
