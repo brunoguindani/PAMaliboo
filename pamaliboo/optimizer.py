@@ -173,7 +173,7 @@ class Optimizer:
       self.logger.debug("Recovering of finished jobs completed")
       # Skip iteration if queue is full
       if len(jobs_queue) == parallelism_level:
-        self.logger.debug("Maximum parallelism level reached: sleeping for %d "
+        self.logger.debug("Maximum parallelism level reached: sleeping for %f "
                           "seconds", timeout)
         time.sleep(timeout)
         continue
