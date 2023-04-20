@@ -14,6 +14,7 @@ limitations under the License.
 import logging
 import numpy as np
 import os
+import pandas as pd
 import time
 
 from .acquisitions import AcquisitionFunction
@@ -70,9 +71,25 @@ class Optimizer:
       self.logger.debug("Created output folder %s", self.output_folder)
 
 
-  def submit_initial_points(self, n_points: int, timeout: float):
-    # TODO
-    pass
+  def initialize(self, init_history_path: str):
+    """Initialize optimizer and GP with history from given file"""
+    self.logger.info("Initializing optimizer...")
+    if len(self.gp.database) > 0:
+      self.logger.info("GP database already contains points: input database "
+                       "ignored")
+    else:
+      # Initialize history database from given file
+      self.logger.info("Setting initial points...")
+      df = pd.read_csv(init_history_path, index_col=FileDataFrame.index_name)
+      history = FileDataFrame(os.path.join(self.output_folder, 'history.csv'),
+                              data=df)
+      df_gp = df[self.gp.database_columns]
+      df_gp.to_csv(self.gp.database_path,
+                   index_label=FileDataFrame.index_name)
+    self.logger.debug("Fitting GP...")
+    self.gp.fit()
+    self.logger.debug("Done")
+    self.logger.info("Initialization complete")
 
 
   def maximize(self, n_iter: int, parallelism_level: int, timeout: float):

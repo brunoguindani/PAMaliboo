@@ -17,7 +17,7 @@ from pamaliboo.optimizer import Optimizer
 
 output_folder = 'outputs'
 database = 'gp_database.csv'
-history = 'history.csv'
+init_history = 'resources/dummy_initial.csv'
 np.random.seed(42)
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 
@@ -25,11 +25,6 @@ debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 # Temporary code to take initialization values and remove temp files
 os.makedirs(output_folder, exist_ok=True)
 database_path = os.path.join(output_folder, database)
-history_path = os.path.join(output_folder, history)
-if not os.path.exists(database_path):
-  copyfile('resources/dummy_initial.csv', history_path)
-  db = pd.read_csv(history_path, index_col='index')[['f1','f2','target']]
-  db.to_csv(database_path, index_label='index')
 
 
 # Set logging level
@@ -43,9 +38,9 @@ acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
 bounds = {'x1': (0, 5), 'x2': (0, 5)}
 kernel = Matern(nu=2.5)  # + WhiteKernel(noise_level_bounds=(0.2, 2))
 gp = DGPR(database_path, feature_names=['f1', 'f2'], kernel=kernel)
-gp.fit()
 job_submitter = HyperqueueJobSubmitter(output_folder)
 # obj = DummyObjective()
 obj = DummyObjective(domain_file='resources/dummy_domain.csv')
 optimizer = Optimizer(acq, bounds, gp, job_submitter, obj, output_folder)
+optimizer.initialize(init_history)
 optimizer.maximize(n_iter=10, parallelism_level=2, timeout=3)
