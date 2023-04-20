@@ -14,7 +14,7 @@ def test_acq_gp():
   database = 'tests/temp.local.csv'
   np.random.seed(42)
   x0 = np.array([[3,7]])
-  gp = DGPR(database, feature_names=['f1', 'f2'])
+  gp = DGPR(database, feature_names=['x1', 'x2'])
   X = np.array([[2, 5],
                 [4, 10]])
   y = np.array([20, 50])

@@ -30,15 +30,16 @@ np.random.seed(rng_seed)
 
 # Initialize library objects
 job_submitter = HyperqueueJobSubmitter(output_folder)
+opt_bounds = {'x1': (0, 5), 'x2': (0, 5)}
+features = list(opt_bounds.keys())
 constraints = {'result': (2, 6), 'result^2': (4, 36)}
 model = Ridge()
 acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
            models=[model, model])
 kernel = Matern(nu=2.5)
-gp = DGPR(gp_database, feature_names=['f1', 'f2'], kernel=kernel)
+gp = DGPR(gp_database, feature_names=features, kernel=kernel)
 # obj = DummyObjective()
 obj = DummyObjective(domain_file=domain)
-opt_bounds = {'x1': (0, 5), 'x2': (0, 5)}
 optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj, output_folder)
 optimizer.initialize(init_history)
 optimizer.maximize(n_iter=10, parallelism_level=2, timeout=3)
