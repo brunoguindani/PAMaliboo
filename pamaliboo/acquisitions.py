@@ -164,9 +164,10 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
   def __init__(self, constraints: dict[str: tuple[float, float]],
                models: list[BaseEstimator], *args, **kwargs):
     """
-    `constraints` maps the name of the constrained resource to its lower and
-    upper bounds, and `models` is the list of ML models which will be used to
-    model each of these resources.
+    Parameters
+    ----------
+    `constraints`: maps names of constrained resources to lower/upper bounds
+    `models`: ML models which will be used to model each of these resources
     """
     super().__init__(*args, **kwargs)
     self.logger.debug("Initializing EIML with constraints=%s, models=%s, "
