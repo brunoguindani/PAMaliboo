@@ -18,6 +18,7 @@ from scipy.optimize import minimize
 from scipy.stats import norm
 from sklearn.base import BaseEstimator
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+from sklearn.metrics import mean_absolute_percentage_error as mape
 
 from .dataframe import FileDataFrame
 from .utils import dict_to_array
@@ -185,9 +186,11 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
       self.logger.debug("On column %s...", key)
       X = history_df[gp.feature_names].values
       y = history_df[key].values
-      self.models[key].fit(X, y)
+      fitted = self.models[key].fit(X, y)
       self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
                                                                    y.shape)
+      error = mape(y, fitted.predict(X))
+      self.logger.debug("Training MAPE = %f", error)
     self.logger.debug("ML models trained successfully")
     super().update_state(gp, history, num_iter)
 
