@@ -21,7 +21,16 @@ from .objectives import ObjectiveFunction
 
 
 class BatchExecutor:
-  """TODO"""
+  """
+  Utility class for batch execution.
+
+  It is initialized with a `JobSubmitter` and an `ObjectiveFunction`. It allows
+  submitting multiple jobs at once to the job scheduler, by passing a
+  `pandas.DataFrame` containing the job configurations to be submitted.
+  Results are then returned in `DataFrame` form. For instance, this class is
+  useful when creating the initial points database required by the `Optimizer`
+  class, by saving the returned `DataFrame` to file.
+  """
   def __init__(self, job_submitter: JobSubmitter,
                      objective: ObjectiveFunction):
     self.logger = logging.getLogger(__name__)
@@ -29,10 +38,20 @@ class BatchExecutor:
     self.objective = objective
 
     self.output_folder = self.job_submitter.output_folder
+    self.logger.debug("Recovered output folder %s from job submitter",
+                      self.output_folder)
 
 
   def execute(self, config_df: pd.DataFrame, timeout: float) -> pd.DataFrame:
-    """TODO"""
+    """
+    Perform batch execution of any number of given configurations
+
+    Each row in `config_df` contains a configuration to be submitted. Then,
+    once every `timeout` seconds, the status of the submitted jobs will be
+    checked. When all jobs are finished, the results are collected and returned
+    in a `pandas.DataFrame`. It contains the objective values and additional
+    information, if any, parsed from the output file.
+    """
     self.logger.info("Performing batch execution...")
     jobs_queue = pd.DataFrame(columns=['idx', 'file'])
 
@@ -42,6 +61,7 @@ class BatchExecutor:
       cmd = self.objective.execution_command(conf)
       output_file = f'batch_{idx}.stdout'
       job_id = self.job_submitter.submit(cmd, output_file)
+      # Add information to jobs queue
       jobs_queue.loc[job_id] = [idx, output_file]
 
     # Wait until all jobs are finished
@@ -72,7 +92,7 @@ class BatchExecutor:
 
 
   def all_finished(self, jobs_ids: pd.Index) -> bool:
-    """TODO"""
+    """Check whether or not ALL jobs in `jobs_ids` are finished"""
     for jid in jobs_ids:
       status = self.job_submitter.get_job_status(jid)
       if status in (JobStatus.CANCELED, JobStatus.FAILED):
