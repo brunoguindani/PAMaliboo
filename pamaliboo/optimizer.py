@@ -107,9 +107,9 @@ class Optimizer:
 
     Parameters
     ----------
-    n_iter: number of iterations of the algorithm
-    parallelism_level: maximum number of jobs running at the same time
-    timeout: waiting period in seconds if the queue is full
+    `n_iter`: number of iterations of the algorithm
+    `parallelism_level`: maximum number of jobs running at the same time
+    `timeout`: waiting period in seconds if the queue is full
     """
     self.logger.debug("Initializing auxiliary dataframes in maximize()...")
     self.history = FileDataFrame(os.path.join(self.output_folder,
@@ -212,7 +212,7 @@ class Optimizer:
     Find next point to be evaluated. Internal use only!
 
     Returns the next point, its index in the optimization domain (if it exists,
-    otherwise returns -curr_iter) and the maximum value of the acquisition
+    otherwise returns -`curr_iter`) and the maximum value of the acquisition
     function.
     """
     # Find maximizer of acquisition function
@@ -236,9 +236,9 @@ class Optimizer:
 
   def _get_fake_objective_value(self, x: np.ndarray) -> float:
     """
-    Return fake value of objective function computed in x. Internal use only!
+    Return fake value of objective function computed in `x`. Internal use only!
 
     In this implementation, the fake value is the current posterior mean of the
-    Gaussian Process evaluated in x.
+    Gaussian Process evaluated in `x`.
     """
     return self.gp.predict(x, return_std=False)[0]

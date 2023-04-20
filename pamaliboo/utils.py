@@ -29,5 +29,5 @@ def dict_to_array(dic: dict[str: tuple[float]]) -> np.ndarray:
 
 
 def join_Xy(X: np.ndarray, y: float) -> np.ndarray:
-  """Join horizontally a row (or matrix) X and a value (or column) y"""
+  """Join horizontally a row (or matrix) `X` and a value (or column) `y`"""
   return np.hstack((X, [y]))

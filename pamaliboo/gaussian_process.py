@@ -41,9 +41,9 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     """
     Parameters
     ----------
-    database: the path to the database file (either existing or to-be-created)
-    feature_names: column names to be used in the database
-    kernel: kernel object for the Gaussian Process prior
+    `database`: path to the database file (either existing or to-be-created)
+    `feature_names`: column names to be used in the database
+    `kernel`: kernel object for the Gaussian Process prior
     """
     self.logger = logging.getLogger(__name__)
     self.logger.debug("Initializing DGPR with database=%s, feature_names=%s, "
@@ -66,7 +66,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
 
 
   def read_database(self) -> None:
-    """Update the X_train_ and y_train_ members with data from the database"""
+    """Update `X_train_` and `y_train_` members with data from the database"""
     df = self.database.get_df()
     self.X_train_, self.y_train_ = df_to_Xy(df, self.target_column)
     self.logger.debug("Setting X_train_ (shape %s) and y_train (shape %s)",
@@ -74,7 +74,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
 
 
   def add_point(self, index: int, X: np.ndarray, y: float) -> None:
-    """Update database with a new point having data X and target value y"""
+    """Update database with a new point having data `X` and target value `y`"""
     row = join_Xy(X, y)
     self.logger.debug("Adding point %s with index %d", row, index)
     self.database.add_row(index, row)
@@ -101,8 +101,8 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     Fit Gaussian Process regression model.
 
     This overrides the behavior of the base object, so as to fail when passing
-    argument X or y. The training data is instead drawn from the database.
-    Therefore, the correct way to call this method is: fit()
+    argument `X` or `y`. The training data is instead drawn from the database.
+    Therefore, the correct way to call this method is `fit()`.
     """
     if X is not None or y is not None:
       raise NotImplementedError("fit(X, y) cannot be used within this class. "
@@ -116,7 +116,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
 
   def predict(self, X: np.ndarray, return_std: bool = False) \
               -> Union[np.ndarray, tuple[np.ndarray]]:
-    """Wrapper for predict() that filters unwanted warnings."""
+    """Wrapper for `predict()` that filters unwanted warnings."""
     if len(X.shape) == 1:
       X = X.reshape(1, -1)
     with warnings.catch_warnings():

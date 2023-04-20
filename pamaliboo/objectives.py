@@ -49,7 +49,7 @@ class ObjectiveFunction(ABC):
 
   def get_approximation(self, x: np.ndarray) -> tuple[np.ndarray, int]:
     """
-    Get closest approximation of x from the optimization domain, wrt L2 norm
+    Get closest approximation of `x` from the optimization domain, wrt L2 norm
 
     The method fails if no domain was initialized. It returns both the
     approximation and its index in the domain
@@ -91,13 +91,11 @@ class ObjectiveFunction(ABC):
 
   @abstractmethod
   def parse_and_evaluate(self, output_file: str) -> float:
-    """Parse the given output file and return the function evaluation"""
+    """Parse given output file and return the function evaluation"""
     pass
 
   def parse_additional_info(self, output_file: str) -> dict[str: float]:
-    """
-    Parse the given output file and return additional auxiliary information
-    """
+    """Parse given output file and return additional auxiliary information"""
     return dict()
 
 
@@ -107,15 +105,13 @@ class DummyObjective(ObjectiveFunction):
     return ['resources/dummy.sh', str(x[0]), str(x[1])]
 
   def parse_and_evaluate(self, output_file: str) -> float:
-    """Parse the given output file and return the function evaluation"""
+    """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output = f.read().strip()
     return float(output)
 
   def parse_additional_info(self, output_file: str) -> dict[str: float]:
-    """
-    Parse the given output file and return additional auxiliary information
-    """
+    """Parse given output file and return additional auxiliary information"""
     with open(output_file, 'r') as f:
       output = f.read().strip()
     val = float(output)
@@ -129,7 +125,7 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     return ['./ligen.sh'] + [str(_) for _ in x]
 
   def parse_and_evaluate(self, output_file: str) -> float:
-    """Parse the given output file and return the function evaluation"""
+    """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output_list = f.read().strip().split(',')
     exe_time = float(output_list[11])
