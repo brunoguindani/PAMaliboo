@@ -163,8 +163,8 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
     self.logger.debug("Training ML models")
     for key in self.models:
       self.logger.debug("On column %s...", key)
-      X = history_df[gp.feature_names]
-      y = history_df[key]
+      X = history_df[gp.feature_names].values
+      y = history_df[key].values
       self.models[key].fit(X, y)
       self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
                                                                    y.shape)
