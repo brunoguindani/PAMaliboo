@@ -72,10 +72,9 @@ class AcquisitionFunction(ABC):
     self.logger.debug("Maximizing within bounds %s...", bounds)
 
     # Sample warmup points to evaluate the acquisition
-    rng = np.random.default_rng()
     bounds_arr = dict_to_array(bounds)
-    x_tries = rng.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
-                          size=(self.n_warmup, bounds_arr.shape[0]))
+    x_tries = np.random.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                                size=(self.n_warmup, bounds_arr.shape[0]))
     ys = self.evaluate(x_tries)
     # Find best warmup point
     idx = ys.argmax()
@@ -83,8 +82,8 @@ class AcquisitionFunction(ABC):
     max_acq = ys[idx]
 
     # Sample initial points for minimization rounds
-    x_seeds = rng.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
-                          size=(self.n_iter, bounds_arr.shape[0]))
+    x_seeds = np.random.uniform(bounds_arr[:, 0], bounds_arr[:, 1],
+                                size=(self.n_iter, bounds_arr.shape[0]))
 
     for x_try in x_seeds:
       # Find the minimum of minus the acquisition function

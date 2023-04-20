@@ -80,7 +80,7 @@ class ObjectiveFunction(ABC):
           approximations_idxs = [df.index[idx]]
 
     # If multiple, choose randomly
-    ret_idx = np.random.default_rng().integers(0, len(approximations_idxs))
+    ret_idx = np.random.randint(0, len(approximations_idxs))
     return approximations[ret_idx], approximations_idxs[ret_idx]
 
 
