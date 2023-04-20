@@ -132,7 +132,7 @@ class ExpectedImprovement(AcquisitionFunction):
     """Update state of the acquisition function, e.g. the Gaussian Process"""
     super().update_state(gp, history, num_iter)
     self.y_max = gp.y_train_.max()
-    self.logger.debug("New EI incumbent is %f", self.y_max)
+    self.logger.debug("New EI incumbent is y = %f", self.y_max)
 
   def evaluate(self, x: np.ndarray) -> float:
     """Evaluate the acquisition function in the given point"""
