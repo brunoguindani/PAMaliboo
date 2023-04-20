@@ -173,13 +173,16 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
 
   def evaluate(self, x: np.ndarray) -> float:
     """Evaluate the acquisition function in the given point"""
+    # This is needed since sometimes scipy's minimize() uses 1-dimensional
+    # arrays, which do not work with predict()
+    x_ = x.reshape((1, -1)) if x.ndim == 1 else x
     # Compute regular EI
-    ret = super().evaluate(x)
+    ret = super().evaluate(x_)
     # For each constrained quantity, compute indicator of its ML prediction
     # respecting the constraints
     for key, bounds in self.constraints.items():
       lb, ub = bounds
-      q_pred = self.models[key].predict(x)
+      q_pred = self.models[key].predict(x_)
       indicator = np.array([lb <= q <= ub for q in q_pred])
       ret *= indicator
     return ret
