@@ -103,6 +103,10 @@ class AcquisitionFunction(ABC):
 
 
 class UpperConfidenceBound(AcquisitionFunction):
+  """
+  Upper Confidence Bound (UCB) acquisition function. It has a `kappa` parameter
+  controlling the exploration-exploitation trade-off.
+  """
   solver = 'L-BFGS-B'
 
   def __init__(self, kappa: float = 2.576, *args, **kwargs):
@@ -121,6 +125,10 @@ class UpperConfidenceBound(AcquisitionFunction):
 
 
 class ExpectedImprovement(AcquisitionFunction):
+  """
+  Expected Improvement (EI) acquisition function. It has a `xi` parameter which
+  I do not know the meaning of.
+  """
   solver = 'L-BFGS-B'
 
   def __init__(self, xi: float = 0.0, *args, **kwargs):
@@ -144,14 +152,25 @@ class ExpectedImprovement(AcquisitionFunction):
 
 
 class ExpectedImprovementMachineLearning(ExpectedImprovement):
+  """
+  Expected Improvement - Machine Learning acquisition function for constrained
+  optimization. In particular, it trains ML models to estimate each constrained
+  value q_i(x). The models then act as indicator functions, setting the
+  acquisition value to zero if q_i(x) is estimated to not respect the
+  constraints.
+  """
   solver = 'Nelder-Mead'
 
   def __init__(self, constraints: dict[str: tuple[float, float]],
                models: list[BaseEstimator], *args, **kwargs):
+    """
+    `constraints` maps the name of the constrained resource to its lower and
+    upper bounds, and `models` is the list of ML models which will be used to
+    model each of these resources.
+    """
     super().__init__(*args, **kwargs)
     self.logger.debug("Initializing EIML with constraints=%s, models=%s, "
-                      "args=%s, kwargs=%s",
-                      constraints, models, args, kwargs)
+                      "args=%s, kwargs=%s", constraints, models, args, kwargs)
     self.constraints = constraints
     self.models = dict(zip(constraints.keys(), models))
 
