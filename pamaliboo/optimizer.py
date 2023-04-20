@@ -43,8 +43,9 @@ class Optimizer:
   evaluation has finished, f' will be replaced by the true value f(x).
   The class keeps track of which jobs are submitted in a queue. When the size
   of the queue reaches a maximum parallelism level, a user-set timeout
-  activates. This will allow for some space in the queue to be freed up before
-  the next iteration.
+  activates, to allow for some jobs in the queue to finish. The timeout will
+  repeat, and no new jobs will be submitted, until some space in the queue is
+  freed up.
   """
   def __init__(self, acquisition: AcquisitionFunction,
                      bounds: dict[str: tuple[float, float]],
