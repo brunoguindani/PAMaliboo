@@ -16,7 +16,7 @@ from pamaliboo.optimizer import Optimizer
 
 
 output_folder = 'outputs'
-database = 'gp_database.csv'
+gp_database = os.path.join(output_folder, 'gp_database.csv')
 init_history = os.path.join('resources', 'dummy_initial.csv')
 domain = os.path.join('resources', 'dummy_domain.csv')
 rng_seed = 42
@@ -25,7 +25,6 @@ rng_seed = 42
 # Initialize and set relevant stuff
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
-database_path = os.path.join(output_folder, database)
 np.random.seed(rng_seed)
 
 
@@ -36,7 +35,7 @@ model = Ridge()
 acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
            models=[model, model])
 kernel = Matern(nu=2.5)
-gp = DGPR(database_path, feature_names=['f1', 'f2'], kernel=kernel)
+gp = DGPR(gp_database, feature_names=['f1', 'f2'], kernel=kernel)
 # obj = DummyObjective()
 obj = DummyObjective(domain_file=domain)
 opt_bounds = {'x1': (0, 5), 'x2': (0, 5)}
