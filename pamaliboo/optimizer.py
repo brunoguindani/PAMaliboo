@@ -75,7 +75,7 @@ class Optimizer:
       self.logger.debug("Created output folder %s", self.output_folder)
 
 
-  def initialize(self, init_history_path: str):
+  def initialize(self, init_history_path: str) -> None:
     """Initialize optimizer and GP with history from given file"""
     self.logger.info("Initializing optimizer...")
     if len(self.gp.database) > 0:
@@ -96,7 +96,8 @@ class Optimizer:
     self.logger.info("Initialization complete")
 
 
-  def maximize(self, n_iter: int, parallelism_level: int, timeout: float):
+  def maximize(self, n_iter: int, parallelism_level: int, timeout: float) \
+               -> None:
     """
     Main function which performs parallel asynchronous Bayesian Optimization.
 
