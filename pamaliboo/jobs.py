@@ -64,7 +64,8 @@ class JobSubmitter(ABC):
 
 
 class HyperqueueJobSubmitter(JobSubmitter):
-  """Job submitter for the Hyperqueue library.
+  """
+  Job submitter for the Hyperqueue library.
 
   Hyperqueue is a single executable file, whose path is indicated in the
   `hq_exec` member.
