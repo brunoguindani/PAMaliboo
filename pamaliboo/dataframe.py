@@ -74,15 +74,15 @@ class FileDataFrame:
     """Add new row at the given index value"""
     self._read()
     self.df.loc[index] = row
-    self.logger.debug("New row added to %s: %s", self.file_path,
-                      self.df.loc[index].to_dict())
+    self.logger.debug("New row with index %d added to %s: %s", index,
+                      self.file_path, self.df.loc[index].to_dict())
     self._save()
 
 
   def remove_row(self, index: int) -> None:
     """Remove row at the given index value"""
     self._read()
-    self.logger.debug("Removing row from %s: %s", self.file_path,
-                      self.df.loc[index].to_dict())
+    self.logger.debug("Removing row with index %d from %s: %s", index,
+                      self.file_path, self.df.loc[index].to_dict())
     self.df.drop(index, axis=0, inplace=True)
     self._save()

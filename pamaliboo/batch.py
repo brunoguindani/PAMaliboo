@@ -66,7 +66,8 @@ class BatchExecutor:
 
     # Wait until all jobs are finished
     while not self.all_finished(jobs_queue.index):
-      self.logger.debug("Unfinished jobs: sleeping for %f seconds...", timeout)
+      self.logger.debug("Unfinished jobs: sleeping for %.2f seconds...",
+                        timeout)
       time.sleep(timeout)
 
     self.logger.info("All jobs have finished: collecting results...")
