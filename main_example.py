@@ -35,7 +35,7 @@ features = list(opt_bounds.keys())
 constraints = {'result': (2, 6), 'result^2': (4, 36)}
 model = Ridge()
 acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
-           models=[model, model])
+           models=[model, model], pickle_folder=output_folder)
 kernel = Matern(nu=2.5)
 gp = DGPR(gp_database, feature_names=features, kernel=kernel)
 # obj = DummyObjective()

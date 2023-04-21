@@ -207,6 +207,7 @@ class Optimizer:
     # Clean up after ending the loop
     self.history = None
     self.logger.info("End of optimization algorithm")
+    self.logger.info("Bye!")
 
 
   def _find_next_point(self, curr_iter: int) -> tuple[np.ndarray, int, float]:

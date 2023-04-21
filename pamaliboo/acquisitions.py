@@ -14,11 +14,14 @@ limitations under the License.
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
+import os
+import pickle
 from scipy.optimize import minimize
 from scipy.stats import norm
 from sklearn.base import BaseEstimator
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.metrics import mean_absolute_percentage_error as mape
+from typing import Optional
 
 from .dataframe import FileDataFrame
 from .utils import dict_to_array
@@ -162,18 +165,23 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
   solver = 'Nelder-Mead'
 
   def __init__(self, constraints: dict[str: tuple[float, float]],
-               models: list[BaseEstimator], *args, **kwargs):
+               models: list[BaseEstimator],
+               pickle_folder: Optional[str] = None, *args, **kwargs):
     """
     Parameters
     ----------
     `constraints`: maps names of constrained resources to lower/upper bounds
     `models`: ML models which will be used to model each of these resources
+    `pickle_folder`: if given, ML models will be saved there in Pickle form
     """
-    super().__init__(*args, **kwargs)
+    self.logger = logging.getLogger(__name__)
     self.logger.debug("Initializing EIML with constraints=%s, models=%s, "
-                      "args=%s, kwargs=%s", constraints, models, args, kwargs)
+                      "pickle_folder=%s, args=%s, kwargs=%s",
+                      constraints, models, pickle_folder, args, kwargs)
+    super().__init__(*args, **kwargs)
     self.constraints = constraints
     self.models = dict(zip(constraints.keys(), models))
+    self.pickle_folder = pickle_folder
 
   def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
                    -> None:
@@ -190,6 +198,12 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
                                                                    y.shape)
       error = mape(y, fitted.predict(X))
       self.logger.debug("Training MAPE = %f", error)
+      # Save model to pickle file, if output path was initialized
+      if self.pickle_folder is not None:
+        model_file = os.path.join(self.pickle_folder, f'model_{key}.pickle')
+        with open(model_file, 'wb') as f:
+          pickle.dump(fitted, f)
+        self.logger.debug("Model saved to file")
     self.logger.debug("ML models trained successfully")
     super().update_state(gp, history, num_iter)
 
