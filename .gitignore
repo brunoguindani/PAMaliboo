@@ -10,6 +10,8 @@ __pycache__
 # IDE files
 *.sublime-*
 
-# Output files
+# Output files and folders
 *.csv
+*.pickle
 *.stdout
+output*/
