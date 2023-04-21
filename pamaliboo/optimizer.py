@@ -126,7 +126,7 @@ class Optimizer:
 
     curr_iter = 0
 
-    while curr_iter < n_iter:
+    while curr_iter < n_iter or len(jobs_queue) > 0:
       # Check for previous interrupted runs
       db_max_idx = self.gp.database.get_df().index.max()
       if curr_iter == 0 and db_max_idx >= 0:
@@ -171,11 +171,19 @@ class Optimizer:
           jobs_queue.remove_row(queue_id)
 
       self.logger.debug("Recovering of finished jobs completed")
+
       # Skip iteration if queue is full
-      if len(jobs_queue) == parallelism_level:
-        self.logger.debug("Maximum parallelism level reached: sleeping for %f "
-                          "seconds", timeout)
+      if curr_iter < n_iter and len(jobs_queue) == parallelism_level:
+        self.logger.debug("Maximum parallelism level reached: sleeping for "
+                          "%.2f seconds...", timeout)
         time.sleep(timeout)
+        continue
+      # Skip iteration if the last iteration was reached
+      elif curr_iter == n_iter:
+        if len(jobs_queue) > 0:
+          self.logger.debug("Unfinished jobs at end of algorithm: sleeping "
+                            "for %.2f seconds...", timeout)
+          time.sleep(timeout)
         continue
 
       self.logger.info("Starting iteration %d", curr_iter)
@@ -189,6 +197,7 @@ class Optimizer:
       cmd = self.objective.execution_command(x_new)
       output_file = self.output_file_fmt.format(curr_iter)
       job_id = self.job_submitter.submit(cmd, output_file)
+      self.logger.debug("Job submitted with id %d", job_id)
       jobs_queue.add_row(job_id, [output_file, curr_iter])
 
       # Add fake objective value to the GP
