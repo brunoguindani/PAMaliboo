@@ -37,7 +37,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
   target_column = 'target'
 
   def __init__(self, database: str, feature_names: list[str],
-               kernel: Kernel = default_kernel, *args, **kwargs):
+               kernel: Kernel = default_kernel):
     """
     Parameters
     ----------
@@ -47,10 +47,9 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
     """
     self.logger = logging.getLogger(__name__)
     self.logger.debug("Initializing DGPR with database=%s, feature_names=%s, "
-                      "kernel=%s, args=%s, kwargs=%s", database, feature_names,
-                      kernel, args, kwargs)
+                      "kernel=%s", database, feature_names, kernel)
 
-    super().__init__(kernel=kernel, *args, **kwargs)
+    super().__init__(kernel=kernel)
 
     self.database_path = database
     self.feature_names = feature_names
