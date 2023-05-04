@@ -9,6 +9,7 @@ It is suited for both constrained and unconstrained optimization.
 
 The code already includes compatibility with the [HyperQueue](https://github.com/It4innovations/hyperqueue) meta-scheduler.
 HyperQueue is provided as a single, statically linked binary without any dependencies, and is therefore an excellent candidate for a lightweight, self-contained scheduler.
+(Versions 0.14.0 and 0.15.0 were used for testing.)
 
 This library supports fault tolerance, as information is constantly saved to human-readable-format files as checkpoint.
 Therefore, in case of system crash, the same script can be launched again and the execution of the parallel algorithm will resume as normal.
