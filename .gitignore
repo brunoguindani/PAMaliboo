@@ -15,3 +15,7 @@ __pycache__
 *.pickle
 *.stdout
 output*/
+
+# Virtual Environment files
+venv/
+*.venv/
