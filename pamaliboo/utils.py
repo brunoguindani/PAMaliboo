@@ -13,9 +13,10 @@ limitations under the License.
 
 import numpy as np
 import pandas as pd
+from typing import Dict, Tuple
 
 
-def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
+def df_to_Xy(df: pd.DataFrame, y_column: str) -> Tuple[np.ndarray, np.ndarray]:
   """Separate DataFrame into a y column with the given name, and an X matrix"""
   y = df[y_column].values
   df.drop(y_column, axis=1, inplace=True)
@@ -23,7 +24,7 @@ def df_to_Xy(df: pd.DataFrame, y_column: str) -> tuple[np.ndarray, np.ndarray]:
   return X, y
 
 
-def dict_to_array(dic: dict[str: tuple[float]]) -> np.ndarray:
+def dict_to_array(dic: Dict[str, Tuple[float]]) -> np.ndarray:
   """Transform a dictionary into a numpy array"""
   return np.array(list(dic.values()))
 

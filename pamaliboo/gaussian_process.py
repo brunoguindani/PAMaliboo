@@ -16,7 +16,7 @@ import numpy as np
 from pandas.errors import EmptyDataError
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 import warnings
 
 from .dataframe import FileDataFrame
@@ -36,7 +36,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
   index_column = 'index'
   target_column = 'target'
 
-  def __init__(self, database: str, feature_names: list[str],
+  def __init__(self, database: str, feature_names: List[str],
                kernel: Kernel = default_kernel):
     """
     Parameters
@@ -59,7 +59,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
 
 
   @property
-  def database_columns(self) -> list[str]:
+  def database_columns(self) -> List[str]:
     """Get the names of the features and of the target column"""
     return self.feature_names + [self.target_column]
 
@@ -114,7 +114,7 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
 
 
   def predict(self, X: np.ndarray, return_std: bool = False) \
-              -> Union[np.ndarray, tuple[np.ndarray]]:
+              -> Union[np.ndarray, Tuple[np.ndarray]]:
     """Wrapper for `predict()` that filters unwanted warnings."""
     if len(X.shape) == 1:
       X = X.reshape(1, -1)

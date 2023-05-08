@@ -16,6 +16,7 @@ import numpy as np
 import os
 import pandas as pd
 import time
+from typing import Dict, Tuple
 
 from .acquisitions import AcquisitionFunction
 from .dataframe import FileDataFrame
@@ -54,7 +55,7 @@ class Optimizer:
   output_file_fmt = 'iter_{}.stdout'
 
   def __init__(self, acquisition: AcquisitionFunction,
-                     bounds: dict[str: tuple[float, float]],
+                     bounds: Dict[str, Tuple[float, float]],
                      gp: DGPR,
                      job_submitter: JobSubmitter,
                      objective: ObjectiveFunction,
@@ -219,7 +220,7 @@ class Optimizer:
     self.logger.info("Bye!")
 
 
-  def _find_next_point(self, curr_iter: int) -> tuple[np.ndarray, int, float]:
+  def _find_next_point(self, curr_iter: int) -> Tuple[np.ndarray, int, float]:
     """
     Find next point to be evaluated. Internal use only!
 

@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 import logging
 import numpy as np
 import os
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 from .dataframe import FileDataFrame
 
@@ -47,7 +47,7 @@ class ObjectiveFunction(ABC):
       self.domain = None
 
 
-  def get_approximation(self, x: np.ndarray) -> tuple[np.ndarray, int]:
+  def get_approximation(self, x: np.ndarray) -> Tuple[np.ndarray, int]:
     """
     Get closest approximation of `x` from the optimization domain, wrt L2 norm
 
@@ -85,7 +85,7 @@ class ObjectiveFunction(ABC):
 
 
   @abstractmethod
-  def execution_command(self, x: np.ndarray) -> list[str]:
+  def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     pass
 
@@ -94,13 +94,13 @@ class ObjectiveFunction(ABC):
     """Parse given output file and return the function evaluation"""
     pass
 
-  def parse_additional_info(self, output_file: str) -> dict[str: float]:
+  def parse_additional_info(self, output_file: str) -> Dict[str, float]:
     """Parse given output file and return additional auxiliary information"""
     return dict()
 
 
 class DummyObjective(ObjectiveFunction):
-  def execution_command(self, x: np.ndarray) -> list[str]:
+  def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     return ['resources/dummy.sh', str(x[0]), str(x[1])]
 
@@ -110,7 +110,7 @@ class DummyObjective(ObjectiveFunction):
       output = f.read().strip()
     return float(output)
 
-  def parse_additional_info(self, output_file: str) -> dict[str: float]:
+  def parse_additional_info(self, output_file: str) -> Dict[str, float]:
     """Parse given output file and return additional auxiliary information"""
     with open(output_file, 'r') as f:
       output = f.read().strip()
@@ -120,7 +120,7 @@ class DummyObjective(ObjectiveFunction):
 
 
 class LigenDummyObjectiveFunction(ObjectiveFunction):
-  def execution_command(self, x: np.ndarray) -> list[str]:
+  def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     return ['./ligen.sh'] + [str(_) for _ in x]
 
@@ -128,8 +128,8 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output_list = f.read().strip().split(',')
-    exe_time = float(output_list[11])
-    rmsd_list = [float(_) for _ in output_list[14].split('/')]
+    exe_time = float(output_List[11])
+    rmsd_list = [float(_) for _ in output_List[14].split('/')]
     rmsd = np.quantile(rmsd_list, 0.75)
     objective_value = -rmsd ** 3 * exe_time
     return objective_value

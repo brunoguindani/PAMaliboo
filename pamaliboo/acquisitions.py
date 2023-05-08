@@ -21,7 +21,7 @@ from scipy.stats import norm
 from sklearn.base import BaseEstimator
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.metrics import mean_absolute_percentage_error as mape
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 from .dataframe import FileDataFrame
 from .utils import dict_to_array
@@ -66,8 +66,8 @@ class AcquisitionFunction(ABC):
     """Evaluate the acquisition function in the given point"""
     pass
 
-  def maximize(self, bounds: dict[str: tuple[float, float]]) \
-               -> tuple[np.ndarray, float]:
+  def maximize(self, bounds: Dict[str, Tuple[float, float]]) \
+               -> Tuple[np.ndarray, float]:
     """
     Find the maximum of the acquisition function within the given bounds and
     with the current state. Returns both the maximizer and the maximum value.
@@ -164,8 +164,8 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
   """
   solver = 'Nelder-Mead'
 
-  def __init__(self, constraints: dict[str: tuple[float, float]],
-               models: list[BaseEstimator],
+  def __init__(self, constraints: Dict[str, Tuple[float, float]],
+               models: List[BaseEstimator],
                pickle_folder: Optional[str] = None, *args, **kwargs):
     """
     Parameters

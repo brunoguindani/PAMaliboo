@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import subprocess
+from typing import List
 import warnings
 
 
@@ -47,7 +48,7 @@ class JobSubmitter(ABC):
       self.logger.debug("Created output folder %s", self.output_folder)
 
   @abstractmethod
-  def submit(self, cmd: list[str], output_file: str) -> int:
+  def submit(self, cmd: List[str], output_file: str) -> int:
     """
     Submit a job containing the given command.
 
@@ -72,7 +73,7 @@ class HyperqueueJobSubmitter(JobSubmitter):
   """
   hq_exec = 'lib/hq'
 
-  def submit(self, cmd: list[str], output_file: str) -> int:
+  def submit(self, cmd: List[str], output_file: str) -> int:
     """
     Submit a job containing the given command.
 
