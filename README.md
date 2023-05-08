@@ -16,6 +16,7 @@ Therefore, in case of system crash, the same script can be launched again and th
 
 
 ## Installation
+The setup was tested on Python versions 3.8 through 3.11.
 1) Download or clone this repository
 2) Install dependencies in `requirements.txt`, or set up a virtual environment
 3) Download the [HyperQueue](https://github.com/It4innovations/hyperqueue/releases/latest) meta-scheduler and place it in the `lib` folder
