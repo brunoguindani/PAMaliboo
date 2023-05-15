@@ -133,3 +133,16 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     rmsd = np.quantile(rmsd_list, 0.75)
     objective_value = -rmsd ** 3 * exe_time
     return objective_value
+
+
+class LigenReducedDummyObjective(ObjectiveFunction):
+  def execution_command(self, x: np.ndarray) -> List[str]:
+    """Return the command to execute the target with the given configuration"""
+    return ['python', 'resources/ligen/ligen_reduced_dummy.py'] + \
+           [str(_) for _ in x]
+
+  def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse given output file and return the function evaluation"""
+    with open(output_file, 'r') as f:
+      val = float(f.read().strip())
+    return val
