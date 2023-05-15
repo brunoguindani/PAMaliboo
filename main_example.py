@@ -14,8 +14,6 @@ limitations under the License.
 import logging
 import numpy as np
 import os
-import pandas as pd
-from shutil import copyfile
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from sklearn.linear_model import Ridge
 import sys
