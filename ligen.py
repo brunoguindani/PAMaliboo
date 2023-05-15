@@ -36,9 +36,9 @@ timeout = 3
 rng_seed = 42
 # Initial points
 features = ['ALIGN', 'OPT' ,'REPS']
-configs = [[ 8,  8, 1],
-           [16, 72, 4],
-           [32, 24, 3]]
+configs = [[32,  8, 1],
+           [ 8, 72, 4],
+          ]
 df_init = pd.DataFrame(data=configs, columns=features)
 
 # Initialize and set relevant stuff
@@ -66,4 +66,4 @@ res.to_csv(init_history, index_label='index')
 
 # Perform optimization
 optimizer.initialize(init_history)
-optimizer.maximize(n_iter=10, parallelism_level=2, timeout=timeout)
+optimizer.maximize(n_iter=20, parallelism_level=2, timeout=timeout)
