@@ -31,7 +31,7 @@ output_folder = 'outputs'
 os.makedirs(output_folder, exist_ok=True)
 gp_database = os.path.join(output_folder, 'gp_database.csv')
 init_history = os.path.join(output_folder, 'ligen_dummy_initial.csv')
-domain = os.path.join('resources', 'ligen', 'domain_reduced.csv')
+domain = os.path.join('resources', 'ligen', 'ligen_red_domain.csv')
 timeout = 3
 rng_seed = 42
 # Initial points

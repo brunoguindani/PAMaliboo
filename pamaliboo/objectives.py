@@ -144,5 +144,6 @@ class LigenReducedDummyObjective(ObjectiveFunction):
   def parse_and_evaluate(self, output_file: str) -> float:
     """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
-      val = -float(f.read().strip())
+      rmsd, time = f.read().strip().split()
+    val = -float(rmsd) ** 3 * float(time)
     return val
