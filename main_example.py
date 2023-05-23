@@ -48,7 +48,8 @@ model = Ridge()
 acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
            models=[model, model], pickle_folder=output_folder)
 kernel = Matern(nu=2.5)
-gp = DGPR(gp_database, feature_names=features, kernel=kernel)
+gp = DGPR(gp_database, feature_names=features, kernel=kernel,
+          normalize_y=False)
 # obj = DummyObjective()
 obj = DummyObjective(domain_file=domain)
 optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj, output_folder)
