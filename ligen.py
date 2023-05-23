@@ -36,7 +36,7 @@ timeout = 3
 rng_seed = 42
 # Initial points
 features = ['ALIGN', 'OPT' ,'REPS']
-configs = [[32,  8, 1],
+configs = [[48,  8, 1],
            [ 8, 72, 4],
           ]
 df_init = pd.DataFrame(data=configs, columns=features)
@@ -52,7 +52,7 @@ opt_bounds = {'ALIGN': (8, 72.01), 'OPT': (8, 72.01) ,'REPS': (1, 5.01)}
 # model = Ridge()
 acq = UpperConfidenceBound(maximize_n_warmup=10, maximize_n_iter=100)
 kernel = Matern(nu=2.5)
-gp = DGPR(gp_database, feature_names=features, kernel=kernel)
+gp = DGPR(gp_database, feature_names=features, kernel=kernel, normalize_y=True)
 # obj = DummyObjective()
 obj = LigenReducedDummyObjective(domain_file=domain)
 optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj, output_folder)
@@ -66,4 +66,4 @@ res.to_csv(init_history, index_label='index')
 
 # Perform optimization
 optimizer.initialize(init_history)
-optimizer.maximize(n_iter=20, parallelism_level=2, timeout=timeout)
+optimizer.maximize(n_iter=30, parallelism_level=2, timeout=timeout)
