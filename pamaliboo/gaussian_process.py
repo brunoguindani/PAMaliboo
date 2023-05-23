@@ -37,19 +37,20 @@ class DatabaseGaussianProcessRegressor(GaussianProcessRegressor):
   target_column = 'target'
 
   def __init__(self, database: str, feature_names: List[str],
-               kernel: Kernel = default_kernel):
+               kernel: Kernel = default_kernel, normalize_y: bool = True):
     """
     Parameters
     ----------
     `database`: path to the database file (either existing or to-be-created)
     `feature_names`: column names to be used in the database
     `kernel`: kernel object for the Gaussian Process prior
+    `normalize_y`: normalize y values? (if data has nonzero mean, leave True)
     """
     self.logger = logging.getLogger(__name__)
     self.logger.debug("Initializing DGPR with database=%s, feature_names=%s, "
                       "kernel=%s", database, feature_names, kernel)
 
-    super().__init__(kernel=kernel)
+    super().__init__(kernel=kernel, normalize_y=normalize_y)
 
     self.database_path = database
     self.feature_names = feature_names
