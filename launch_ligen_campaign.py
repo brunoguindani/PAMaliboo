@@ -44,6 +44,7 @@ domain = os.path.join('resources', 'ligen', 'ligen_red_domain.csv')
 timeout = 3
 
 # Initialize and set relevant stuff
+domain_df = pd.read_csv(domain, index_col='index')
 rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
@@ -55,26 +56,27 @@ kernel = Matern(nu=2.5)
 obj = LigenReducedDummyObjective(domain_file=domain)
 
 
+# Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
   for rng in rng_seeds:
+    # Create output folder for this experiment
     output_folder = os.path.join(root_output_folder, f'par_{par}',
                                                      f'rng_{rng}')
     os.makedirs(output_folder, exist_ok=True)
-    gp_database = os.path.join(output_folder, 'gp_database.csv')
 
-    # # TODO get df_init
-    # np.random.seed(rng)
-    # init_history = 'TODO'
+    # Get `par` random initial points
+    np.random.seed(rng)
+    df_init = domain_df.sample(n=par)
+    init_history = os.path.join(output_folder, 'init.csv')
+    df_init.to_csv(init_history, index_label='index')
 
     # Initialize library objects
     job_submitter = HyperqueueJobSubmitter(output_folder)
     batch_ex = BatchExecutor(job_submitter, obj)
-    gp = DGPR(gp_database, feature_names=features, kernel=kernel,
-                           normalize_y=True)
+    gp_path = os.path.join(output_folder, 'gp_database.csv')
+    gp = DGPR(gp_path, feature_names=features, kernel=kernel, normalize_y=True)
     optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj,
                           output_folder)
-
-    continue  # TODO
 
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
