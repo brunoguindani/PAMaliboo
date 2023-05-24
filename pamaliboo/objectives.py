@@ -147,3 +147,10 @@ class LigenReducedDummyObjective(ObjectiveFunction):
       rmsd, time = f.read().strip().split()
     val = -float(rmsd) ** 3 * float(time)
     return val
+
+  def parse_additional_info(self, output_file: str) -> Dict[str, float]:
+    """Parse given output file and return additional auxiliary information"""
+    with open(output_file, 'r') as f:
+      rmsd, time = f.read().strip().split()
+    info = {'RMSD_0.75': rmsd}
+    return info
