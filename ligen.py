@@ -50,7 +50,7 @@ np.random.seed(rng_seed)
 job_submitter = HyperqueueJobSubmitter(output_folder)
 opt_bounds = {'ALIGN': (8, 72.01), 'OPT': (8, 72.01) ,'REPS': (1, 5.01)}
 # model = Ridge()
-acq = UpperConfidenceBound(maximize_n_warmup=10, maximize_n_iter=100)
+acq = ExpectedImprovement(maximize_n_warmup=10, maximize_n_iter=100)
 kernel = Matern(nu=2.5)
 gp = DGPR(gp_database, feature_names=features, kernel=kernel, normalize_y=True)
 # obj = DummyObjective()
