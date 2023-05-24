@@ -19,7 +19,8 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from sklearn.linear_model import Ridge
 import sys
 
-from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement
+from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement, \
+                                   ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from pamaliboo.jobs import HyperqueueJobSubmitter
@@ -49,8 +50,9 @@ np.random.seed(rng_seed)
 # Initialize library objects
 job_submitter = HyperqueueJobSubmitter(output_folder)
 opt_bounds = {'ALIGN': (8, 72.01), 'OPT': (8, 72.01) ,'REPS': (1, 5.01)}
-# model = Ridge()
-acq = ExpectedImprovement(maximize_n_warmup=10, maximize_n_iter=100)
+model = Ridge()
+acq = EIML(constraints={'RMSD_0.75': (0, 2)}, models=[model],
+           pickle_folder=None, maximize_n_warmup=10, maximize_n_iter=100)
 kernel = Matern(nu=2.5)
 gp = DGPR(gp_database, feature_names=features, kernel=kernel, normalize_y=True)
 # obj = DummyObjective()
