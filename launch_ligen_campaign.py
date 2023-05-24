@@ -64,12 +64,6 @@ for par in parallelism_levels:
                                                      f'rng_{rng}')
     os.makedirs(output_folder, exist_ok=True)
 
-    # Get `par` random initial points
-    np.random.seed(rng)
-    df_init = domain_df.sample(n=par)
-    init_history = os.path.join(output_folder, 'init.csv')
-    df_init.to_csv(init_history, index_label='index')
-
     # Initialize library objects
     job_submitter = HyperqueueJobSubmitter(output_folder)
     batch_ex = BatchExecutor(job_submitter, obj)
@@ -78,10 +72,15 @@ for par in parallelism_levels:
     optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj,
                           output_folder)
 
+    # Get `par` random initial points
+    np.random.seed(rng)
+    df_init = domain_df.sample(n=par)
+
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
     new_idx = pd.Index([-1]*res.shape[0])
     res.set_index(new_idx, inplace=True)
+    init_history = os.path.join(output_folder, 'init.csv')
     res.to_csv(init_history, index_label='index')
 
     # Perform optimization
