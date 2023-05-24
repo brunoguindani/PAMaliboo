@@ -59,6 +59,8 @@ obj = LigenReducedDummyObjective(domain_file=domain)
 # Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
   for rng in rng_seeds:
+    print(40*"-")
+    print(f"New run with parallelism {par} and RNG seed {rng}")
     # Create output folder for this experiment
     output_folder = os.path.join(root_output_folder, f'par_{par}',
                                                      f'rng_{rng}')
@@ -86,3 +88,4 @@ for par in parallelism_levels:
     # Perform optimization
     optimizer.initialize(init_history)
     optimizer.maximize(n_iter=num_iter, parallelism_level=par, timeout=timeout)
+    print("Run completed\n\n")
