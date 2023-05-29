@@ -49,13 +49,6 @@ rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
-# Initialize constant library objects
-acq = EIML(constraints=opt_constraints, models=ml_models,
-           pickle_folder=None, maximize_n_warmup=10, maximize_n_iter=100)
-kernel = Matern(nu=2.5)
-obj = LigenReducedDummyObjective(domain_file=domain)
-
-
 # Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
   for rng in rng_seeds:
@@ -67,6 +60,10 @@ for par in parallelism_levels:
     os.makedirs(output_folder, exist_ok=True)
 
     # Initialize library objects
+    acq = EIML(constraints=opt_constraints, models=ml_models,
+               pickle_folder=None, maximize_n_warmup=10, maximize_n_iter=100)
+    kernel = Matern(nu=2.5)
+    obj = LigenReducedDummyObjective(domain_file=domain)
     job_submitter = HyperqueueJobSubmitter(output_folder)
     batch_ex = BatchExecutor(job_submitter, obj)
     gp_path = os.path.join(output_folder, 'gp_database.csv')
