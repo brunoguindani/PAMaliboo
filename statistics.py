@@ -46,7 +46,8 @@ for par in parallelism_levels:
                                                      f'rng_{rng}')
     hist = pd.read_csv(os.path.join(output_folder, 'history.csv'),
                        index_col='index')
-    res = pd.DataFrame(index=hist.index)
+    noninit = (hist.index != -1)
+    res = pd.DataFrame(index=hist.index[noninit])
 
     # Feasible observations with respect to the constraints
     res['feas'] = True
