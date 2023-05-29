@@ -30,6 +30,7 @@ from pamaliboo.optimizer import Optimizer
 
 # Campaign parameters
 parallelism_levels = [1, 4]
+indep_seq_runs = 4
 num_runs = 10
 num_iter = 30
 root_rng_seed = 20230524
@@ -45,12 +46,19 @@ timeout = 3
 
 # Initialize and set relevant stuff
 domain_df = pd.read_csv(domain, index_col='index')
-rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
 # Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
+  # Initialize RNG seeds
+  rng_seeds = [root_rng_seed+i for i in range(num_runs)]
+  # Further seeds for independent sequential runs
+  if par == 1 and indep_seq_runs > 1:
+    for r in list(rng_seeds):
+      other_seeds = [10*r+i for i in range(indep_seq_runs-1)]
+      rng_seeds.extend(other_seeds)
+
   for rng in rng_seeds:
     print(40*"-")
     print(f"New run with parallelism {par} and RNG seed {rng}")
