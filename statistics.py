@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import numpy as np
 import os
 import pandas as pd
 
@@ -30,61 +31,81 @@ df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
 
-global_metrics = pd.DataFrame()
 
-# Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
-  # Initialize RNG seeds
-  rng_seeds = [root_rng_seed+i for i in range(num_runs)]
-  # Further seeds for independent sequential runs
-  if par == 1 and indep_seq_runs > 1:
-    for r in list(rng_seeds):
-      other_seeds = [10*r+i for i in range(indep_seq_runs-1)]
-      rng_seeds.extend(other_seeds)
+  # Initialize main RNG seeds
+  main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
+  for main_rng in main_rng_seeds:
+    # For independent sequential experiments, each main RNG seed has a *group*
+    # of `indep_seq_runs` linked RNG seeds, which includes the main seed
+    # itself. Otherwise, the group reduces to just the main seed
+    group_seeds = [main_rng]
+    if par == 1 and indep_seq_runs > 1:
+      other_seeds = [10*main_rng+i for i in range(indep_seq_runs-1)]
+      group_seeds.extend(other_seeds)
+    print(f">>> par = {par}, main_rng = {main_rng}, -> {group_seeds}")
 
-  for rng in rng_seeds:
-    print(f">>> par = {par}, rng = {rng}")
-    # Get history dataframe for this experiment
-    output_folder = os.path.join(root_output_folder, f'par_{par}',
-                                                     f'rng_{rng}')
-    hist = pd.read_csv(os.path.join(output_folder, 'history.csv'),
-                       index_col='index')
-    res = pd.DataFrame(index=hist.index)
+    # Initialize results dictionaries for this group
+    res_dic      = dict.fromkeys(group_seeds, None)
+    n_unfeas_dic = dict.fromkeys(group_seeds, None)
+    avg_reg_dic  = dict.fromkeys(group_seeds, None)
 
-    # Feasible observations with respect to the constraints
-    res['feas'] = True
-    for key, (lb, ub) in opt_constraints.items():
-      res['feas'] = res['feas'] & (lb <= hist[key]) & (hist[key] <= ub)
+    # Loop over individual RNG seeds in this group
+    for rng in group_seeds:
+      # Get history dataframe for this experiment
+      output_folder = os.path.join(root_output_folder, f'par_{par}',
+                                                       f'rng_{rng}')
+      hist = pd.read_csv(os.path.join(output_folder, 'history.csv'),
+                         index_col='index')
+      res = pd.DataFrame(index=hist.index)
 
-    # Feasible incumbents at each iteration
-    incumbents = []
-    curr_inc = None
-    for i in range(hist.shape[0]):
-      if res['feas'].iloc[i] and (curr_inc is None
-                                  or hist['target'].iloc[i] > curr_inc):
-        curr_inc = hist['target'].iloc[i]
-      incumbents.append(curr_inc)
-    res['incum'] = incumbents
+      # Feasible observations with respect to the constraints
+      res['feas'] = True
+      for key, (lb, ub) in opt_constraints.items():
+        res['feas'] = res['feas'] & (lb <= hist[key]) & (hist[key] <= ub)
 
-    # Simple relative regret
-    res['relreg'] = (res['incum'] - best['target']) / best['target']
+      # Feasible incumbents at each iteration
+      incumbents = []
+      curr_inc = None
+      for i in range(hist.shape[0]):
+        if res['feas'].iloc[i] and (curr_inc is None
+                                    or hist['target'].iloc[i] > curr_inc):
+          curr_inc = hist['target'].iloc[i]
+        incumbents.append(curr_inc)
+      res['incumb'] = incumbents
 
-    # Remove initial points and compute global metrics
-    noninit = (hist.index != -1)
-    res = res.loc[noninit]
-    n_unfeas = (~res['feas']).sum()
-    avg_reg = res['relreg'].mean()
+      # Simple relative regret
+      res['relreg'] = (res['incumb'] - best['target']) / best['target']
 
-    if indep_seq_runs == 1:
-      global_metrics.loc[rng, 'n_unfeas'] = n_unfeas
-      global_metrics.loc[rng, 'avg_reg'] = avg_reg
+      # Remove initial points and compute global metrics
+      noninit = (hist.index != -1)
+      res = res.loc[noninit]
+      n_unfeas = (~res['feas']).sum()
+      avg_reg = res['relreg'].mean()
 
-    print(res)
-    print("Unfeasible =", n_unfeas)
-    print("Average relative regret =", avg_reg)
-    print()
+      # Add stuff to results dictionaries
+      res_dic[rng] = res
+      n_unfeas_dic[rng] = n_unfeas
+      avg_reg_dic[rng] = avg_reg
 
-print("Global metrics:")
-print(global_metrics)
-print("Average global metrics:")
-print(global_metrics.mean())
+    # Concatenate results horizontally and compute best incumbent/regret across
+    # seeds, for each iteration (row)
+    res_concat = pd.concat(list(res_dic.values()), axis=1)
+    best_incumb = pd.DataFrame(res_concat['incumb']) \
+                    .max(axis=1).rename('incumb', inplace=True)
+    best_relreg = pd.DataFrame(res_concat['relreg']) \
+                    .min(axis=1).rename('relreg', inplace=True)
+    # Combine results into single DataFrame
+    best_combined = pd.concat((best_incumb, best_relreg), axis=1)
+
+    # Compute other group metrics
+    group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
+    group_avg_reg = np.mean(list(avg_reg_dic.values()))
+
+    # Print stuff
+    print("Group average metrics:")
+    print("Unfeasible =", group_n_unfeas)
+    print("Average regret =", group_avg_reg)
+    print("Iteration-related metrics:")
+    print(best_combined)
+    print("\n")
