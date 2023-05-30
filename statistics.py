@@ -30,6 +30,8 @@ df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
 
+global_metrics = pd.DataFrame()
+
 # Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
   # Initialize RNG seeds
@@ -67,10 +69,22 @@ for par in parallelism_levels:
     # Simple relative regret
     res['relreg'] = (res['incum'] - best['target']) / best['target']
 
-    # Print results and compute global metrics by removing initial points
+    # Remove initial points and compute global metrics
     noninit = (hist.index != -1)
     res = res.loc[noninit]
+    n_unfeas = (~res['feas']).sum()
+    avg_reg = res['relreg'].mean()
+
+    if indep_seq_runs == 1:
+      global_metrics.loc[rng, 'n_unfeas'] = n_unfeas
+      global_metrics.loc[rng, 'avg_reg'] = avg_reg
+
     print(res)
-    print("Unfeasible =", (~res['feas']).sum())
-    print("Average relative regret =", res['relreg'].mean())
+    print("Unfeasible =", n_unfeas)
+    print("Average relative regret =", avg_reg)
     print()
+
+print("Global metrics:")
+print(global_metrics)
+print("Average global metrics:")
+print(global_metrics.mean())
