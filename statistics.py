@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -114,15 +115,25 @@ for main_rng in main_rng_seeds:
 
     par_to_results[par]['n_unfeas'] = group_n_unfeas
     par_to_results[par]['avg_reg'] = group_avg_reg
-    # par_to_results[par]['iterations'] = best_combined
+    par_to_results[par]['iterations'] = best_combined
 
     rng_to_par_to_results[main_rng] = par_to_results
 
   # For each main RNG seeed, print and plot stuff
   print(f"For main RNG seed {main_rng}:")
+  fig, ax = plt.subplots()
   for par in parallelism_levels:
     print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
           f"avg_reg = {par_to_results[par]['avg_reg']}")
+    df = par_to_results[par]['iterations']['relreg']
+    ax.plot(df, marker='o', label=str(par))
+  ax.axhline(0, c='lightgreen', ls='--', label='ground truth')
+  ax.set_ylim(-0.01, 1.0)
+  ax.set_title("Relative regret")
+  ax.legend()
+  plot_file = os.path.join(root_output_folder,
+                           f'par_vs_{indep_seq_runs}_{main_rng}.png')
+  fig.savefig(plot_file, bbox_inches='tight', dpi=300)
   print()
 
 print("Global metrics:")
