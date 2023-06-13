@@ -33,9 +33,10 @@ best = df_truth.iloc[0]
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
+rng_to_par_to_results = {m: {} for m in main_rng_seeds}
 
 for main_rng in main_rng_seeds:
-  par_level_to_results = dict.fromkeys(parallelism_levels, dict())
+  par_to_results = {p: {} for p in parallelism_levels}
   for par in parallelism_levels:
     # For independent sequential experiments, each main RNG seed has a *group*
     # of `indep_seq_runs` linked RNG seeds, which includes the main seed
@@ -104,16 +105,31 @@ for main_rng in main_rng_seeds:
     group_avg_reg = np.mean(list(avg_reg_dic.values()))
 
     # Print stuff
-    print("Group average metrics:")
-    print("Unfeasible =", group_n_unfeas)
-    print("Average regret =", group_avg_reg)
-    print("Iteration-related metrics:")
-    print(best_combined)
-    print("\n")
+    # print("Group average metrics:")
+    # print("Unfeasible =", group_n_unfeas)
+    # print("Average regret =", group_avg_reg)
+    # print("Iteration-related metrics:")
+    # print(best_combined)
+    # print("\n")
 
-    par_level_to_results[par]['n_unfeas'] = group_n_unfeas
-    par_level_to_results[par]['avg_reg'] = group_avg_reg
-    par_level_to_results[par]['iterations'] = best_combined
+    par_to_results[par]['n_unfeas'] = group_n_unfeas
+    par_to_results[par]['avg_reg'] = group_avg_reg
+    # par_to_results[par]['iterations'] = best_combined
+
+    rng_to_par_to_results[main_rng] = par_to_results
 
   # For each main RNG seeed, print and plot stuff
-  pass  # TODO
+  print(f"For main RNG seed {main_rng}:")
+  for par in parallelism_levels:
+    print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
+          f"avg_reg = {par_to_results[par]['avg_reg']}")
+  print()
+
+print("Global metrics:")
+for par in parallelism_levels:
+  nums_unfeas = [ rng_to_par_to_results[r][par]['n_unfeas']
+                  for r in main_rng_seeds]
+  avg_regs = [ rng_to_par_to_results[r][par]['avg_reg']
+               for r in main_rng_seeds]
+  print(f"par = {par}: n_unfeas = {np.mean(nums_unfeas)}, "
+        f"avg_reg = {np.mean(avg_regs)}")
