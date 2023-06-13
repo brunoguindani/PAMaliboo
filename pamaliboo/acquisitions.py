@@ -196,8 +196,8 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
       fitted = self.models[key].fit(X, y)
       self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
                                                                    y.shape)
-      error = mape(y, fitted.predict(X))
-      self.logger.debug("Training MAPE = %f", error)
+      self.train_MAPE = mape(y, fitted.predict(X))
+      self.logger.debug("Training MAPE = %f", self.train_MAPE)
       # Save model to pickle file, if output path was initialized
       if self.pickle_folder is not None:
         model_file = os.path.join(self.pickle_folder, f'model_{key}.pickle')

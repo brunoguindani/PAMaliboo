@@ -122,7 +122,8 @@ class Optimizer:
                                columns=['path', 'iteration'])
     other_info = FileDataFrame(os.path.join(self.output_folder,
                                             self.other_info_filename),
-                               columns=['domain_idx', 'acquisition'])
+                               columns=['domain_idx', 'acquisition',
+                                        'train_MAPE'])
     self.logger.debug("Done")
 
     curr_iter = 0
@@ -192,7 +193,8 @@ class Optimizer:
       # Find next point to be evaluated
       x_new, idx_appr, acq_value = self._find_next_point(curr_iter)
       # Record additional information
-      other_info.add_row(curr_iter, [idx_appr, acq_value])
+      error = getattr(self.acquisition, 'train_MAPE', None)  # meh...
+      other_info.add_row(curr_iter, [idx_appr, acq_value, error])
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
