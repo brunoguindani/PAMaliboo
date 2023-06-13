@@ -93,4 +93,4 @@ for par in parallelism_levels:
     # Perform optimization
     optimizer.initialize(init_history)
     optimizer.maximize(n_iter=num_iter, parallelism_level=par, timeout=timeout)
-    print("Run completed\n\n")
+    print("Run completed\n\n", flush=True)
