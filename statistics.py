@@ -22,7 +22,7 @@ parallelism_levels = [1, 4]
 indep_seq_runs = 4
 num_runs = 10
 root_rng_seed = 20230524
-root_output_folder = 'outputs_ligen_old'  # TODO
+root_output_folder = 'outputs_ligen'
 opt_constraints = {'RMSD_0.75': (0, 2)}
 
 # Find real optimum
