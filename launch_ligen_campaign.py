@@ -18,6 +18,7 @@ import pandas as pd
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from sklearn.linear_model import Ridge
 import sys
+import time
 
 from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement, \
                                    ExpectedImprovementMachineLearning as EIML
@@ -48,6 +49,10 @@ timeout = 3
 domain_df = pd.read_csv(domain, index_col='index')
 debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+
+
+print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+      flush=True)
 
 # Loop over paralellism levels and RNG seeds
 for par in parallelism_levels:
@@ -94,3 +99,6 @@ for par in parallelism_levels:
     optimizer.initialize(init_history)
     optimizer.maximize(n_iter=num_iter, parallelism_level=par, timeout=timeout)
     print("Run completed\n\n", flush=True)
+
+print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+      flush=True)
