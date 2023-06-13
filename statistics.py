@@ -17,11 +17,11 @@ import pandas as pd
 
 
 # Campaign parameters
-parallelism_levels = [1, 2]
+parallelism_levels = [1, 4]
 indep_seq_runs = 4
-num_runs = 3
+num_runs = 10
 root_rng_seed = 20230524
-root_output_folder = 'outputs_ligen'
+root_output_folder = 'outputs_ligen_old'  # TODO
 opt_constraints = {'RMSD_0.75': (0, 2)}
 
 # Find real optimum
@@ -31,11 +31,12 @@ df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
 
+# Initialize main RNG seeds
+main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 
-for par in parallelism_levels:
-  # Initialize main RNG seeds
-  main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
-  for main_rng in main_rng_seeds:
+for main_rng in main_rng_seeds:
+  par_level_to_results = dict.fromkeys(parallelism_levels, dict())
+  for par in parallelism_levels:
     # For independent sequential experiments, each main RNG seed has a *group*
     # of `indep_seq_runs` linked RNG seeds, which includes the main seed
     # itself. Otherwise, the group reduces to just the main seed
@@ -109,3 +110,10 @@ for par in parallelism_levels:
     print("Iteration-related metrics:")
     print(best_combined)
     print("\n")
+
+    par_level_to_results[par]['n_unfeas'] = group_n_unfeas
+    par_level_to_results[par]['avg_reg'] = group_avg_reg
+    par_level_to_results[par]['iterations'] = best_combined
+
+  # For each main RNG seeed, print and plot stuff
+  pass  # TODO
