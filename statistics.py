@@ -53,7 +53,7 @@ for main_rng in main_rng_seeds:
     # Initialize results dictionaries for this group
     res_dic      = dict.fromkeys(group_seeds, None)
     n_unfeas_dic = dict.fromkeys(group_seeds, None)
-    avg_reg_dic  = dict.fromkeys(group_seeds, None)
+    avg_dist_dic = dict.fromkeys(group_seeds, None)
     avg_mape_dic = dict.fromkeys(group_seeds, None)
 
     # Loop over individual RNG seeds in this group
@@ -80,51 +80,44 @@ for main_rng in main_rng_seeds:
         incumbents.append(curr_inc)
       res['incumb'] = incumbents
 
+      # Compute distance from ground truth, either:
       if use_relative:
-        # Simple relative regret
-        res['regr'] = (res['incumb'] - best['target']) / best['target']
+        # ...simple relative regret
+        res['dist'] = (res['incumb'] - best['target']) / best['target']
       else:
-        # Target value
-        res['regr'] = -res['incumb']
+        # ...or target value
+        res['dist'] = -res['incumb']
 
       # Remove initial points and compute global metrics
       noninit = (hist.index != -1)
       res = res.loc[noninit]
       n_unfeas = (~res['feas']).sum()
-      avg_reg = res['regr'].mean()
+      avg_dist = res['dist'].mean()
 
       # Add stuff to results dictionaries
       res_dic[rng] = res
       n_unfeas_dic[rng] = n_unfeas
-      avg_reg_dic[rng] = avg_reg
+      avg_dist_dic[rng] = avg_dist
       avg_mape_dic[rng] = pd.read_csv(os.path.join(output_folder,
                                                    'info.csv'))['train_MAPE']
 
-    # Concatenate results horizontally and compute best incumbent/regret across
-    # seeds, for each iteration (row)
+    # Concatenate results horizontally and compute best incumbent/distance
+    # across seeds, for each iteration (row)
     res_concat = pd.concat(list(res_dic.values()), axis=1)
     best_incumb = pd.DataFrame(res_concat['incumb']) \
                     .max(axis=1).rename('incumb', inplace=True)
-    best_regr = pd.DataFrame(res_concat['regr']) \
-                    .min(axis=1).rename('regr', inplace=True)
+    best_dist = pd.DataFrame(res_concat['dist']) \
+                    .min(axis=1).rename('dist', inplace=True)
     # Combine results into single DataFrame
-    best_combined = pd.concat((best_incumb, best_regr), axis=1)
+    best_combined = pd.concat((best_incumb, best_dist), axis=1)
     avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
 
     # Compute other group metrics
     group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
-    group_avg_reg = np.mean(list(avg_reg_dic.values()))
-
-    # Print stuff
-    # print("Group average metrics:")
-    # print("Unfeasible =", group_n_unfeas)
-    # print("Average regret =", group_avg_reg)
-    # print("Iteration-related metrics:")
-    # print(best_combined)
-    # print("\n")
+    group_avg_dist = np.mean(list(avg_dist_dic.values()))
 
     par_to_results[par]['n_unfeas'] = group_n_unfeas
-    par_to_results[par]['avg_reg'] = group_avg_reg
+    par_to_results[par]['avg_dist'] = group_avg_dist
     par_to_results[par]['iterations'] = best_combined
     par_to_results[par]['avg_mape'] = avg_mape
 
@@ -135,8 +128,8 @@ for main_rng in main_rng_seeds:
   fig, ax = plt.subplots(2, 1, figsize=(5, 8))
   for par in parallelism_levels:
     print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
-          f"avg_reg = {par_to_results[par]['avg_reg']}")
-    ax[0].plot(par_to_results[par]['iterations']['regr'], marker='o',
+          f"avg_dist = {par_to_results[par]['avg_dist']}")
+    ax[0].plot(par_to_results[par]['iterations']['dist'], marker='o',
                                                           label=str(par))
     ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=str(par))
     ground = 0 if use_relative else -best['target']
@@ -163,7 +156,7 @@ print("Global metrics:")
 for par in parallelism_levels:
   nums_unfeas = [ rng_to_par_to_results[r][par]['n_unfeas']
                   for r in main_rng_seeds]
-  avg_regs = [ rng_to_par_to_results[r][par]['avg_reg']
+  avg_dists = [ rng_to_par_to_results[r][par]['avg_dist']
                for r in main_rng_seeds]
   print(f"par = {par}: n_unfeas = {np.mean(nums_unfeas)}, "
-        f"avg_reg = {np.mean(avg_regs)}")
+        f"avg_dist = {np.mean(avg_dists)}")
