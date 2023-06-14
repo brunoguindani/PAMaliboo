@@ -19,6 +19,7 @@ import pandas as pd
 
 # Campaign parameters
 use_relative = True
+use_incumbents = True
 parallelism_levels = [1, 4]
 indep_seq_runs = 4
 num_runs = 10
@@ -70,23 +71,33 @@ for main_rng in main_rng_seeds:
       for key, (lb, ub) in opt_constraints.items():
         res['feas'] = res['feas'] & (lb <= hist[key]) & (hist[key] <= ub)
 
-      # Feasible incumbents at each iteration
-      incumbents = []
-      curr_inc = None
-      for i in range(hist.shape[0]):
-        if res['feas'].iloc[i] and (curr_inc is None
-                                    or hist['target'].iloc[i] > curr_inc):
-          curr_inc = hist['target'].iloc[i]
-        incumbents.append(curr_inc)
-      res['incumb'] = incumbents
+      # Collect *feasible* points at each iterations
+      points = []
+      if use_incumbents:
+        # collect incumbents at each iteration
+        curr = None
+        for i in range(hist.shape[0]):
+          if res['feas'].iloc[i] and (curr is None
+                                      or hist['target'].iloc[i] > curr):
+            curr = hist['target'].iloc[i]
+          points.append(curr)
+      else:  # if not use_incumbents
+        # collect the points evaluated at each iteration
+        for i in range(hist.shape[0]):
+          if res['feas'].iloc[i]:
+            points.append(hist['target'].iloc[i])
+          else:
+            points.append(None)
+      # Save points to results dataframe
+      res['points'] = points
 
       # Compute distance from ground truth, either:
       if use_relative:
         # ...simple relative regret
-        res['dist'] = (res['incumb'] - best['target']) / best['target']
+        res['dist'] = (res['points'] - best['target']) / best['target']
       else:
         # ...or target value
-        res['dist'] = -res['incumb']
+        res['dist'] = -res['points']
 
       # Remove initial points and compute global metrics
       noninit = (hist.index != -1)
@@ -101,15 +112,15 @@ for main_rng in main_rng_seeds:
       avg_mape_dic[rng] = pd.read_csv(os.path.join(output_folder,
                                                    'info.csv'))['train_MAPE']
 
-    # Concatenate results horizontally and compute best incumbent/distance
+    # Concatenate results horizontally and compute best points and distance
     # across seeds, for each iteration (row)
     res_concat = pd.concat(list(res_dic.values()), axis=1)
-    best_incumb = pd.DataFrame(res_concat['incumb']) \
-                    .max(axis=1).rename('incumb', inplace=True)
+    best_points = pd.DataFrame(res_concat['points']) \
+                    .max(axis=1).rename('points', inplace=True)
     best_dist = pd.DataFrame(res_concat['dist']) \
                     .min(axis=1).rename('dist', inplace=True)
     # Combine results into single DataFrame
-    best_combined = pd.concat((best_incumb, best_dist), axis=1)
+    best_combined = pd.concat((best_points, best_dist), axis=1)
     avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
 
     # Compute other group metrics
@@ -136,11 +147,13 @@ for main_rng in main_rng_seeds:
   ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
   if use_relative:
     ax[0].set_ylim(-0.01, 1.0)
-    ax[0].set_title("Relative regret of incumbents")
+    title_distance = "Relative regret"
   else:
     floor = np.floor(-best['target'] / 10**3) * 10**3
     ax[0].set_ylim(floor, 2*floor)
-    ax[0].set_title("Target values of incumbents")
+    title_distance = "Target values"
+  title_points = "incumbents" if use_incumbents else "points"
+  ax[0].set_title(f"{title_distance} of {title_points}")
   ax[0].legend()
 
   ax[1].set_ylim(-0.01, 0.1)
