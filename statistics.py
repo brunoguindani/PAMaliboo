@@ -143,10 +143,11 @@ for main_rng in main_rng_seeds:
   ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
   if use_relative:
     ax[0].set_ylim(-0.01, 1.0)
+    ax[0].set_title("Relative regret of incumbents")
   else:
     floor = np.floor(-best['target'] / 10**3) * 10**3
     ax[0].set_ylim(floor, 2*floor)
-  ax[0].set_title("Relative regret" if use_relative else "Target values")
+    ax[0].set_title("Target values of incumbents")
   ax[0].legend()
 
   ax[1].set_ylim(-0.01, 0.1)
