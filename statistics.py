@@ -31,6 +31,7 @@ df_truth = pd.read_csv(os.path.join('resources', 'ligen',
 df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
+print(best)
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
