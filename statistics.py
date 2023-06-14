@@ -52,6 +52,7 @@ for main_rng in main_rng_seeds:
     res_dic      = dict.fromkeys(group_seeds, None)
     n_unfeas_dic = dict.fromkeys(group_seeds, None)
     avg_reg_dic  = dict.fromkeys(group_seeds, None)
+    avg_mape_dic = dict.fromkeys(group_seeds, None)
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -90,6 +91,8 @@ for main_rng in main_rng_seeds:
       res_dic[rng] = res
       n_unfeas_dic[rng] = n_unfeas
       avg_reg_dic[rng] = avg_reg
+      avg_mape_dic[rng] = pd.read_csv(os.path.join(output_folder,
+                                                   'info.csv'))['train_MAPE']
 
     # Concatenate results horizontally and compute best incumbent/regret across
     # seeds, for each iteration (row)
@@ -100,6 +103,7 @@ for main_rng in main_rng_seeds:
                     .min(axis=1).rename('relreg', inplace=True)
     # Combine results into single DataFrame
     best_combined = pd.concat((best_incumb, best_relreg), axis=1)
+    avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
 
     # Compute other group metrics
     group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
@@ -116,21 +120,28 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['n_unfeas'] = group_n_unfeas
     par_to_results[par]['avg_reg'] = group_avg_reg
     par_to_results[par]['iterations'] = best_combined
+    par_to_results[par]['avg_mape'] = avg_mape
 
     rng_to_par_to_results[main_rng] = par_to_results
 
   # For each main RNG seeed, print and plot stuff
   print(f"For main RNG seed {main_rng}:")
-  fig, ax = plt.subplots()
+  fig, ax = plt.subplots(2, 1, figsize=(5, 8))
   for par in parallelism_levels:
     print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
           f"avg_reg = {par_to_results[par]['avg_reg']}")
-    df = par_to_results[par]['iterations']['relreg']
-    ax.plot(df, marker='o', label=str(par))
-  ax.axhline(0, c='lightgreen', ls='--', label='ground truth')
-  ax.set_ylim(-0.01, 1.0)
-  ax.set_title("Relative regret")
-  ax.legend()
+    ax[0].plot(par_to_results[par]['iterations']['relreg'], marker='o',
+                                                            label=str(par))
+    ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=str(par))
+  ax[0].axhline(0, c='lightgreen', ls='--', label='ground truth')
+  ax[0].set_ylim(-0.01, 1.0)
+  ax[0].set_title("Relative regret")
+  ax[0].legend()
+
+  ax[1].set_ylim(-0.01, 0.1)
+  ax[1].set_title("Training MAPE")
+  ax[1].legend()
+
   plot_file = os.path.join(root_output_folder,
                            f'par_vs_{indep_seq_runs}_{main_rng}.png')
   fig.savefig(plot_file, bbox_inches='tight', dpi=300)
