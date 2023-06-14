@@ -18,6 +18,7 @@ import pandas as pd
 
 
 # Campaign parameters
+use_relative = True
 parallelism_levels = [1, 4]
 indep_seq_runs = 4
 num_runs = 10
@@ -79,14 +80,18 @@ for main_rng in main_rng_seeds:
         incumbents.append(curr_inc)
       res['incumb'] = incumbents
 
-      # Simple relative regret
-      res['relreg'] = (res['incumb'] - best['target']) / best['target']
+      if use_relative:
+        # Simple relative regret
+        res['regr'] = (res['incumb'] - best['target']) / best['target']
+      else:
+        # Target value
+        res['regr'] = -res['incumb']
 
       # Remove initial points and compute global metrics
       noninit = (hist.index != -1)
       res = res.loc[noninit]
       n_unfeas = (~res['feas']).sum()
-      avg_reg = res['relreg'].mean()
+      avg_reg = res['regr'].mean()
 
       # Add stuff to results dictionaries
       res_dic[rng] = res
@@ -100,10 +105,10 @@ for main_rng in main_rng_seeds:
     res_concat = pd.concat(list(res_dic.values()), axis=1)
     best_incumb = pd.DataFrame(res_concat['incumb']) \
                     .max(axis=1).rename('incumb', inplace=True)
-    best_relreg = pd.DataFrame(res_concat['relreg']) \
-                    .min(axis=1).rename('relreg', inplace=True)
+    best_regr = pd.DataFrame(res_concat['regr']) \
+                    .min(axis=1).rename('regr', inplace=True)
     # Combine results into single DataFrame
-    best_combined = pd.concat((best_incumb, best_relreg), axis=1)
+    best_combined = pd.concat((best_incumb, best_regr), axis=1)
     avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
 
     # Compute other group metrics
@@ -131,12 +136,17 @@ for main_rng in main_rng_seeds:
   for par in parallelism_levels:
     print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
           f"avg_reg = {par_to_results[par]['avg_reg']}")
-    ax[0].plot(par_to_results[par]['iterations']['relreg'], marker='o',
-                                                            label=str(par))
+    ax[0].plot(par_to_results[par]['iterations']['regr'], marker='o',
+                                                          label=str(par))
     ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=str(par))
-  ax[0].axhline(0, c='lightgreen', ls='--', label='ground truth')
-  ax[0].set_ylim(-0.01, 1.0)
-  ax[0].set_title("Relative regret")
+    ground = 0 if use_relative else -best['target']
+  ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
+  if use_relative:
+    ax[0].set_ylim(-0.01, 1.0)
+  else:
+    floor = np.floor(-best['target'] / 10**3) * 10**3
+    ax[0].set_ylim(floor, 2*floor)
+  ax[0].set_title("Relative regret" if use_relative else "Target values")
   ax[0].legend()
 
   ax[1].set_ylim(-0.01, 0.1)
