@@ -152,5 +152,5 @@ class LigenReducedDummyObjective(ObjectiveFunction):
     """Parse given output file and return additional auxiliary information"""
     with open(output_file, 'r') as f:
       rmsd, time = f.read().strip().split()
-    info = {'RMSD_0.75': rmsd}
+    info = {'RMSD_0.75': float(rmsd)}
     return info
