@@ -14,12 +14,11 @@ limitations under the License.
 import logging
 import numpy as np
 import os
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
 import sys
 
-from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement, \
-                                   ExpectedImprovementMachineLearning as EIML
+from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from pamaliboo.jobs import HyperqueueJobSubmitter
 from pamaliboo.objectives import DummyObjective

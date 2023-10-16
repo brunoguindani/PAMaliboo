@@ -128,8 +128,8 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output_list = f.read().strip().split(',')
-    exe_time = float(output_List[11])
-    rmsd_list = [float(_) for _ in output_List[14].split('/')]
+    exe_time = float(output_list[11])
+    rmsd_list = [float(_) for _ in output_list[14].split('/')]
     rmsd = np.quantile(rmsd_list, 0.75)
     objective_value = -rmsd ** 3 * exe_time
     return objective_value

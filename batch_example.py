@@ -14,7 +14,6 @@ limitations under the License.
 import logging
 import os
 import pandas as pd
-import sys
 
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.jobs import HyperqueueJobSubmitter
