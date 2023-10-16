@@ -15,13 +15,12 @@ import logging
 import numpy as np
 import os
 import pandas as pd
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
 import sys
 import time
 
-from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement, \
-                                   ExpectedImprovementMachineLearning as EIML
+from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from pamaliboo.jobs import HyperqueueJobSubmitter
