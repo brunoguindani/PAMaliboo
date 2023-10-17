@@ -73,7 +73,8 @@ for par in parallelism_levels:
 
     # Initialize library objects
     acq = EIML(constraints=opt_constraints, models=ml_models,
-               pickle_folder=None, maximize_n_warmup=10, maximize_n_iter=100)
+               train_periodicity=3, pickle_folder=None,
+               maximize_n_warmup=10, maximize_n_iter=100)
     kernel = Matern(nu=2.5)
     obj = LigenReducedDummyObjective(domain_file=domain)
     job_submitter = HyperqueueJobSubmitter(output_folder)
