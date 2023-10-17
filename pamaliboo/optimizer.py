@@ -87,8 +87,8 @@ class Optimizer:
       # Initialize history database from given file
       self.logger.info("Setting initial points...")
       df = pd.read_csv(init_history_path, index_col=FileDataFrame.index_name)
-      history = FileDataFrame(os.path.join(self.output_folder,
-                                           self.history_filename), data=df)
+      _ = FileDataFrame(os.path.join(self.output_folder,
+                                     self.history_filename), data=df)
       df_gp = df[self.gp.database_columns]
       df_gp.to_csv(self.gp.database_path,
                    index_label=FileDataFrame.index_name)
