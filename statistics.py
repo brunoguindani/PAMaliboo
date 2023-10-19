@@ -21,8 +21,8 @@ import pandas as pd
 use_relative = True
 use_incumbents = True
 parallelism_levels = [1, 4]
-indep_seq_runs = 4
-num_runs = 10
+indep_seq_runs = 2
+num_runs = 2
 root_rng_seed = 20230524
 root_output_folder = 'outputs_ligen'
 opt_constraints = {'RMSD_0.75': (0, 2)}
@@ -34,6 +34,9 @@ df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
 print(best)
+
+# Initialize vector of time instants
+time_grid = np.arange(0, 300, 1.0)
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -56,6 +59,7 @@ for main_rng in main_rng_seeds:
     n_unfeas_dic = dict.fromkeys(group_seeds, None)
     avg_dist_dic = dict.fromkeys(group_seeds, None)
     avg_mape_dic = dict.fromkeys(group_seeds, None)
+    time_dist_dic = dict.fromkeys(group_seeds, None)
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -63,6 +67,8 @@ for main_rng in main_rng_seeds:
       output_folder = os.path.join(root_output_folder, f'par_{par}',
                                                        f'rng_{rng}')
       hist = pd.read_csv(os.path.join(output_folder, 'history.csv'),
+                         index_col='index')
+      info = pd.read_csv(os.path.join(output_folder, 'info.csv'),
                          index_col='index')
       res = pd.DataFrame(index=hist.index)
 
@@ -105,23 +111,27 @@ for main_rng in main_rng_seeds:
       n_unfeas = (~res['feas']).sum()
       avg_dist = res['dist'].mean()
 
+      # Compute optimizer times on the time grid
+      discrete_times = info['optimizer_time']
+      dists = res['dist']
+      time_dist = pd.Series(index=time_grid)
+      for i in range(len(discrete_times)-1):
+        time_dist[discrete_times[i]:discrete_times[i+1]] = dists[i]
+      time_dist[discrete_times.iloc[-1]:] = dists.iloc[-1]
+
       # Add stuff to results dictionaries
       res_dic[rng] = res
       n_unfeas_dic[rng] = n_unfeas
       avg_dist_dic[rng] = avg_dist
-      avg_mape_dic[rng] = pd.read_csv(os.path.join(output_folder,
-                                                   'info.csv'))['train_MAPE']
+      avg_mape_dic[rng] = info['train_MAPE']
+      time_dist_dic[rng] = time_dist
 
     # Concatenate results horizontally and compute best points and distance
     # across seeds, for each iteration (row)
     res_concat = pd.concat(list(res_dic.values()), axis=1)
-    best_points = pd.DataFrame(res_concat['points']) \
-                    .max(axis=1).rename('points', inplace=True)
-    best_dist = pd.DataFrame(res_concat['dist']) \
-                    .min(axis=1).rename('dist', inplace=True)
     # Combine results into single DataFrame
-    best_combined = pd.concat((best_points, best_dist), axis=1)
     avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
+    best_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)
 
     # Compute other group metrics
     group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
@@ -129,19 +139,18 @@ for main_rng in main_rng_seeds:
 
     par_to_results[par]['n_unfeas'] = group_n_unfeas
     par_to_results[par]['avg_dist'] = group_avg_dist
-    par_to_results[par]['iterations'] = best_combined
     par_to_results[par]['avg_mape'] = avg_mape
+    par_to_results[par]['time_dist'] = best_time_dist
 
     rng_to_par_to_results[main_rng] = par_to_results
 
   # For each main RNG seeed, print and plot stuff
   print(f"For main RNG seed {main_rng}:")
-  fig, ax = plt.subplots(2, 1, figsize=(5, 8))
+  fig, ax = plt.subplots(2, 1, figsize=(8, 8))
   for par in parallelism_levels:
     print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
           f"avg_dist = {par_to_results[par]['avg_dist']}")
-    ax[0].plot(par_to_results[par]['iterations']['dist'], marker='o',
-                                                          label=str(par))
+    ax[0].plot(par_to_results[par]['time_dist'], label=str(par))
     ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=str(par))
     ground = 0 if use_relative else -best['target']
   ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
@@ -153,12 +162,14 @@ for main_rng in main_rng_seeds:
     ax[0].set_ylim(floor, 2*floor)
     title_distance = "Target values"
   title_points = "incumbents" if use_incumbents else "points"
+  ax[0].set_xlabel("Time [s]")
   ax[0].set_title(f"{title_distance} of {title_points}")
   ax[0].legend()
-
+  ax[1].set_xlabel("Iterations")
   ax[1].set_ylim(-0.01, 0.1)
   ax[1].set_title("Training MAPE")
   ax[1].legend()
+  fig.subplots_adjust(hspace=0.25)
 
   plot_file = os.path.join(root_output_folder,
                            f'par_vs_{indep_seq_runs}_{main_rng}.png')
