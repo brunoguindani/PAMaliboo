@@ -42,7 +42,7 @@ opt_bounds = {'ALIGN': (8, 72.01), 'OPT': (8, 72.01) ,'REPS': (1, 5.01)}
 opt_constraints = {'RMSD_0.75': (0, 2)}
 features = list(opt_bounds.keys())
 domain = os.path.join('resources', 'ligen', 'ligen_red_domain.csv')
-timeout = 3
+timeout = 1
 
 # Initialize and set relevant stuff
 domain_df = pd.read_csv(domain, index_col='index')
