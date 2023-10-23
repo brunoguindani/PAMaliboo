@@ -21,8 +21,8 @@ import pandas as pd
 use_relative = True
 use_incumbents = True
 parallelism_levels = [1, 4]
-indep_seq_runs = 2
-num_runs = 2
+indep_seq_runs = 4
+num_runs = 10
 root_rng_seed = 20230524
 root_output_folder = 'outputs_ligen'
 opt_constraints = {'RMSD_0.75': (0, 2)}
@@ -33,10 +33,7 @@ df_truth = pd.read_csv(os.path.join('resources', 'ligen',
 df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
-print(best)
-
-# Initialize vector of time instants
-time_grid = np.arange(0, 300, 1.0)
+# print(best)
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -114,6 +111,8 @@ for main_rng in main_rng_seeds:
       # Compute optimizer times on the time grid
       discrete_times = info['optimizer_time']
       dists = res['dist']
+      # Initialize vector of time instants
+      time_grid = np.arange(0, discrete_times.iloc[-1]+1.0, 1.0)
       time_dist = pd.Series(index=time_grid)
       for i in range(len(discrete_times)-1):
         time_dist[discrete_times[i]:discrete_times[i+1]] = dists[i]
@@ -132,6 +131,9 @@ for main_rng in main_rng_seeds:
     # Combine results into single DataFrame
     avg_mape = pd.concat(avg_mape_dic.values(), axis=1).mean(axis=1)
     best_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)
+    # Stop at the earliest time at which a seed has finished
+    end_time = np.min([d.index[-1] for d in time_dist_dic.values()])
+    best_time_dist = best_time_dist.loc[:end_time]
 
     # Compute other group metrics
     group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
@@ -155,7 +157,7 @@ for main_rng in main_rng_seeds:
     ground = 0 if use_relative else -best['target']
   ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
   if use_relative:
-    ax[0].set_ylim(-0.01, 1.0)
+    ax[0].set_ylim(-0.01, 0.8)
     title_distance = "Relative regret"
   else:
     floor = np.floor(-best['target'] / 10**3) * 10**3
@@ -163,10 +165,12 @@ for main_rng in main_rng_seeds:
     title_distance = "Target values"
   title_points = "incumbents" if use_incumbents else "points"
   ax[0].set_xlabel("Time [s]")
+  ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_title(f"{title_distance} of {title_points}")
   ax[0].legend()
   ax[1].set_xlabel("Iterations")
   ax[1].set_ylim(-0.01, 0.1)
+  ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
   ax[1].legend()
   fig.subplots_adjust(hspace=0.25)
