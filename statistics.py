@@ -143,6 +143,7 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['avg_dist'] = group_avg_dist
     par_to_results[par]['avg_mape'] = avg_mape
     par_to_results[par]['time_dist'] = best_time_dist
+    par_to_results[par]['num_indep_runs'] = len(res_dic)
 
     rng_to_par_to_results[main_rng] = par_to_results
 
@@ -150,10 +151,14 @@ for main_rng in main_rng_seeds:
   print(f"For main RNG seed {main_rng}:")
   fig, ax = plt.subplots(2, 1, figsize=(8, 8))
   for par in parallelism_levels:
-    print(f"par = {par}: n_unfeas = {par_to_results[par]['n_unfeas']}, "
+    par_n_unf = par_to_results[par]['n_unfeas']
+    num_indep_runs = par_to_results[par]['num_indep_runs']
+    label = f"parallelism {par}, {num_indep_runs} instance(s)"
+    print(f"par = {par}: n_unfeas = {par_n_unf}, "
           f"avg_dist = {par_to_results[par]['avg_dist']}")
-    ax[0].plot(par_to_results[par]['time_dist'], label=str(par))
-    ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=str(par))
+    ax[0].plot(par_to_results[par]['time_dist'],
+               label=label+f" (unfeasible: {par_n_unf})")
+    ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
     ground = 0 if use_relative else -best['target']
   ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
   if use_relative:
