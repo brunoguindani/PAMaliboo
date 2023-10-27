@@ -57,6 +57,7 @@ for main_rng in main_rng_seeds:
     avg_dist_dic = dict.fromkeys(group_seeds, None)
     avg_mape_dic = dict.fromkeys(group_seeds, None)
     time_dist_dic = dict.fromkeys(group_seeds, None)
+    time_feas_dic = {}
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -118,6 +119,10 @@ for main_rng in main_rng_seeds:
         time_dist[discrete_times[i]:discrete_times[i+1]] = dists[i]
       time_dist[discrete_times.iloc[-1]:] = dists.iloc[-1]
 
+      # Collect time -> feasibility
+      for t, feas in zip(discrete_times, res['feas']):
+        time_feas_dic[t] = feas
+
       # Add stuff to results dictionaries
       res_dic[rng] = res
       n_unfeas_dic[rng] = n_unfeas
@@ -144,6 +149,7 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['avg_mape'] = avg_mape
     par_to_results[par]['time_dist'] = best_time_dist
     par_to_results[par]['num_indep_runs'] = len(res_dic)
+    par_to_results[par]['time_feas'] = time_feas_dic
 
     rng_to_par_to_results[main_rng] = par_to_results
 
@@ -156,11 +162,28 @@ for main_rng in main_rng_seeds:
     label = f"parallelism {par}, {num_indep_runs} instance(s)"
     print(f"par = {par}: n_unfeas = {par_n_unf}, "
           f"avg_dist = {par_to_results[par]['avg_dist']}")
-    ax[0].plot(par_to_results[par]['time_dist'],
-               label=label+f" (unfeasible: {par_n_unf})")
+
+    # First plot: regret and feasibility of executions
+    times_dists = par_to_results[par]['time_dist']
+    ax[0].plot(times_dists, lw=1, label=label+f" (unfeasible: {par_n_unf})")
+    color = ax[0].lines[-1].get_color()
+    # Loop on iterations (their optimizer time and feasibility)
+    for t, feas in par_to_results[par]['time_feas'].items():
+      # Compute approximation of optimizer time on the time grid
+      if t > times_dists.index[-1]:
+        time_approx = times_dists.index[-1]
+      else:
+        time_approx = times_dists.index[times_dists.index > t][0]
+      # Plot iteration differently according to its feasibility
+      facecolor = color if feas else 'none'
+      ax[0].scatter(time_approx, times_dists[time_approx], marker='o', s=12,
+                    edgecolor=color, facecolors=facecolor, linewidths=0.5)
+
+    # Second plot: MAPE over iterations
     ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
     ground = 0 if use_relative else -best['target']
-  ax[0].axhline(ground, c='lightgreen', ls='--', label='ground truth')
+  ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
+                        zorder=-2)
   if use_relative:
     ax[0].set_ylim(-0.01, 0.8)
     title_distance = "Relative regret"
@@ -169,11 +192,11 @@ for main_rng in main_rng_seeds:
     ax[0].set_ylim(floor, 2*floor)
     title_distance = "Target values"
   title_points = "incumbents" if use_incumbents else "points"
-  ax[0].set_xlabel("Time [s]")
+  ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_title(f"{title_distance} of {title_points}")
   ax[0].legend()
-  ax[1].set_xlabel("Iterations")
+  ax[1].set_xlabel("iterations")
   ax[1].set_ylim(-0.01, 0.1)
   ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
