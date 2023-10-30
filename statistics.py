@@ -18,18 +18,19 @@ import pandas as pd
 
 
 # Campaign parameters
+experiment_kind = 'red'
 use_relative = True
 use_incumbents = True
 parallelism_levels = [1, 4]
 indep_seq_runs = 4
 num_runs = 10
 root_rng_seed = 20230524
-root_output_folder = 'outputs_ligen'
 opt_constraints = {'RMSD_0.75': (0, 2)}
+root_output_folder = f'outputs_ligen_{experiment_kind}'
 
 # Find real optimum
 df_truth = pd.read_csv(os.path.join('resources', 'ligen',
-                                    'ligen_red_table.csv'))
+                                   f'ligen_{experiment_kind}_table.csv'))
 df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]

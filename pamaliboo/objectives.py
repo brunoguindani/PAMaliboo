@@ -154,3 +154,10 @@ class LigenReducedDummyObjective(ObjectiveFunction):
       rmsd, time = f.read().strip().split()
     info = {'RMSD_0.75': float(rmsd)}
     return info
+
+
+class LigenFullDummyObjective(LigenReducedDummyObjective):
+  def execution_command(self, x: np.ndarray) -> List[str]:
+    """Return the command to execute the target with the given configuration"""
+    return ['python', 'resources/ligen/ligen_full_dummy.py'] + \
+           [str(_) for _ in x]

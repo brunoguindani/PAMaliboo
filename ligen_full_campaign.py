@@ -24,7 +24,7 @@ from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from pamaliboo.jobs import HyperqueueJobSubmitter
-from pamaliboo.objectives import LigenReducedDummyObjective
+from pamaliboo.objectives import LigenFullDummyObjective
 from pamaliboo.optimizer import Optimizer
 
 
@@ -34,14 +34,17 @@ indep_seq_runs = 4
 num_runs = 10
 num_iter = 60
 root_rng_seed = 20230524
-root_output_folder = 'outputs_ligen'
+root_output_folder = 'outputs_ligen_full'
 ml_models = [Ridge()]
 
 # Other parameters
-opt_bounds = {'ALIGN': (8, 72.01), 'OPT': (8, 72.01) ,'REPS': (1, 5.01)}
-opt_constraints = {'RMSD_0.75': (0, 2)}
+opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
+              'OPTIMIZE_REPS': [1, 5.01], 'CUDA_THREADS': [32, 256.01],
+              'N_RESTART': [256, 1024.01], 'CLIPPING': [10, 256.01],
+              'SIM_THRESH': [1, 4.01], 'BUFFER_SIZE': [1048576, 52428800.01]}
+opt_constraints = {'RMSD_0.75': (0, 2.1)}
 features = list(opt_bounds.keys())
-domain = os.path.join('resources', 'ligen', 'ligen_red_domain.csv')
+domain = os.path.join('resources', 'ligen', 'ligen_full_domain.csv')
 timeout = 1
 
 # Initialize and set relevant stuff
@@ -76,7 +79,7 @@ for par in parallelism_levels:
                train_periodicity=3, pickle_folder=None,
                maximize_n_warmup=10, maximize_n_iter=100)
     kernel = Matern(nu=2.5)
-    obj = LigenReducedDummyObjective(domain_file=domain)
+    obj = LigenFullDummyObjective(domain_file=domain)
     job_submitter = HyperqueueJobSubmitter(output_folder)
     batch_ex = BatchExecutor(job_submitter, obj)
     gp_path = os.path.join(output_folder, 'gp_database.csv')
