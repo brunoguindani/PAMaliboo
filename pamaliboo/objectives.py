@@ -159,3 +159,7 @@ class LigenReducedDummyObjective(ObjectiveFunction):
 
 class LigenFullDummyObjective(LigenReducedDummyObjective):
   script_name = 'ligen_full_dummy.py'
+
+
+class LigenSynthDummyObjective(LigenReducedDummyObjective):
+  script_name = 'ligen_synth_dummy.py'
