@@ -19,3 +19,6 @@ output*/
 # Virtual Environment files
 venv/
 *.venv/
+
+# SFTP config files
+sftp-config.json
