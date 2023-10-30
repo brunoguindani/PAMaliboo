@@ -136,9 +136,10 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
 
 
 class LigenReducedDummyObjective(ObjectiveFunction):
+  script_name = 'ligen_reduced_dummy.py'
   def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
-    return ['python', 'resources/ligen/ligen_reduced_dummy.py'] + \
+    return ['python', f'resources/ligen/{self.script_name}'] + \
            [str(_) for _ in x]
 
   def parse_and_evaluate(self, output_file: str) -> float:
@@ -157,7 +158,4 @@ class LigenReducedDummyObjective(ObjectiveFunction):
 
 
 class LigenFullDummyObjective(LigenReducedDummyObjective):
-  def execution_command(self, x: np.ndarray) -> List[str]:
-    """Return the command to execute the target with the given configuration"""
-    return ['python', 'resources/ligen/ligen_full_dummy.py'] + \
-           [str(_) for _ in x]
+  script_name = 'ligen_full_dummy.py'
