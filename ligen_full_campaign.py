@@ -12,6 +12,7 @@ limitations under the License.
 """
 
 import logging
+from multiprocessing import Pool
 import numpy as np
 import os
 import pandas as pd
@@ -53,21 +54,8 @@ debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
 logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
 
 
-print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-      flush=True)
-
-# Loop over paralellism levels and RNG seeds
-for par in parallelism_levels:
-  # Initialize RNG seeds
-  rng_seeds = [root_rng_seed+i for i in range(num_runs)]
-  # Further seeds for independent sequential runs
-  if par == 1 and indep_seq_runs > 1:
-    for r in list(rng_seeds):
-      other_seeds = [10*r+i for i in range(indep_seq_runs-1)]
-      rng_seeds.extend(other_seeds)
-
-  for rng in rng_seeds:
-    print(40*"-")
+# Function for a single experiment
+def run_experiment(rng):
     print(f"New run with parallelism {par} and RNG seed {rng}")
     # Create output folder for this experiment
     output_folder = os.path.join(root_output_folder, f'par_{par}',
@@ -101,7 +89,27 @@ for par in parallelism_levels:
     # Perform optimization
     optimizer.initialize(init_history)
     optimizer.maximize(n_iter=num_iter, parallelism_level=par, timeout=timeout)
-    print("Run completed\n\n", flush=True)
+    print("Run completed", flush=True)
+
+
+print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+      flush=True)
+
+# Loop over paralellism levels and RNG seeds
+for par in parallelism_levels:
+  # Initialize RNG seeds
+  rng_seeds = [root_rng_seed+i for i in range(num_runs)]
+  # Further seeds for independent sequential runs
+  if par == 1 and indep_seq_runs > 1:
+    for r in list(rng_seeds):
+      group_seeds = [r] + [10*r+i for i in range(indep_seq_runs-1)]
+      # Run such experiments in parallel
+      with Pool(indep_seq_runs) as pool:
+        pool.map(run_experiment, group_seeds)
+      print("Parallel batch completed\n" + 40*"-" + "\n\n")
+  else:
+    for rng in rng_seeds:
+      run_experiment(rng)
 
 print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
       flush=True)
