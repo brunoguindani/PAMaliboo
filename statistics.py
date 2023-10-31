@@ -58,6 +58,7 @@ for main_rng in main_rng_seeds:
     avg_dist_dic = dict.fromkeys(group_seeds, None)
     avg_mape_dic = dict.fromkeys(group_seeds, None)
     time_dist_dic = dict.fromkeys(group_seeds, None)
+    avg_dist_fea_unf_dic = dict.fromkeys(group_seeds, None)
     time_feas_dic = {}
 
     # Loop over individual RNG seeds in this group
@@ -110,6 +111,16 @@ for main_rng in main_rng_seeds:
       n_unfeas = (~res['feas']).sum()
       avg_dist = res['dist'].mean()
 
+      # Distance considering both feasible and unfeasible points
+      targets = hist.loc[noninit, 'target']
+      if use_relative:
+        # ...simple relative regret
+        dist_fea_unf = (targets - best['target']) / best['target']
+      else:
+        # ...or target value
+        dist_fea_unf = -res['points']
+      avg_dist_fea_unf = dist_fea_unf.cummin().mean()
+
       # Compute optimizer times on the time grid
       discrete_times = info['optimizer_time']
       dists = res['dist']
@@ -128,6 +139,7 @@ for main_rng in main_rng_seeds:
       res_dic[rng] = res
       n_unfeas_dic[rng] = n_unfeas
       avg_dist_dic[rng] = avg_dist
+      avg_dist_fea_unf_dic[rng] = avg_dist_fea_unf
       avg_mape_dic[rng] = info['train_MAPE']
       time_dist_dic[rng] = time_dist
 
@@ -144,9 +156,11 @@ for main_rng in main_rng_seeds:
     # Compute other group metrics
     group_n_unfeas = np.mean(list(n_unfeas_dic.values()))
     group_avg_dist = np.mean(list(avg_dist_dic.values()))
+    group_avg_dist_fea_unfeas = np.mean(list(avg_dist_fea_unf_dic.values()))
 
     par_to_results[par]['n_unfeas'] = group_n_unfeas
     par_to_results[par]['avg_dist'] = group_avg_dist
+    par_to_results[par]['avg_dist_fea_unf'] = group_avg_dist_fea_unfeas
     par_to_results[par]['avg_mape'] = avg_mape
     par_to_results[par]['time_dist'] = best_time_dist
     par_to_results[par]['num_indep_runs'] = len(res_dic)
@@ -250,8 +264,11 @@ fig.savefig(plot_file, bbox_inches='tight', dpi=300)
 print("Global metrics:")
 for par in parallelism_levels:
   nums_unfeas = [ rng_to_par_to_results[r][par]['n_unfeas']
-                  for r in main_rng_seeds]
+                  for r in main_rng_seeds ]
   avg_dists = [ rng_to_par_to_results[r][par]['avg_dist']
-               for r in main_rng_seeds]
+                for r in main_rng_seeds ]
+  avg_dists_fea_unf = [ rng_to_par_to_results[r][par]['avg_dist_fea_unf']
+                        for r in main_rng_seeds ]
   print(f"par = {par}: n_unfeas = {np.mean(nums_unfeas)}, "
-        f"avg_dist = {np.mean(avg_dists)}")
+        f"avg_dist = {np.mean(avg_dists)}",
+        f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}")
