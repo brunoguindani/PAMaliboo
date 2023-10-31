@@ -209,6 +209,44 @@ for main_rng in main_rng_seeds:
   fig.savefig(plot_file, bbox_inches='tight', dpi=300)
   print()
 
+fig, ax = plt.subplots(2, 1, figsize=(8, 8))
+for par in parallelism_levels:
+  df_dist = pd.concat([rng_to_par_to_results[r][par]['time_dist']
+                       for r in main_rng_seeds], axis=1)
+  df_dist = df_dist.fillna(method='ffill').mean(axis=1)
+  df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
+                       for r in main_rng_seeds], axis=1).fillna(method='ffill')
+  df_mape = df_mape.fillna(method='ffill').mean(axis=1)
+  num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
+                                        [par]['num_indep_runs']
+  label = f"parallelism {par}, {num_indep_runs} instance(s)"
+  ax[0].plot(df_dist, lw=1, label=label)
+  ax[1].plot(df_mape, marker='o', label=label)
+
+ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
+                      zorder=-2)
+if use_relative:
+  ax[0].set_ylim(-0.01, 0.5)
+  title_distance = "Relative regret"
+else:
+  floor = np.floor(-best['target'] / 10**3) * 10**3
+  ax[0].set_ylim(floor, 2*floor)
+  title_distance = "Target values"
+title_points = "incumbents" if use_incumbents else "points"
+ax[0].set_xlabel("time [s]")
+ax[0].grid(axis='y', alpha=0.4)
+ax[0].set_title(f"{title_distance} of {title_points}")
+ax[0].legend()
+ax[1].set_xlabel("iterations")
+ax[1].set_ylim(-0.01, 0.1)
+ax[1].grid(axis='y', alpha=0.4)
+ax[1].set_title("Training MAPE")
+ax[1].legend()
+fig.subplots_adjust(hspace=0.25)
+plot_file = os.path.join(root_output_folder,
+                         f'par_vs_{indep_seq_runs}_all.png')
+fig.savefig(plot_file, bbox_inches='tight', dpi=300)
+
 print("Global metrics:")
 for par in parallelism_levels:
   nums_unfeas = [ rng_to_par_to_results[r][par]['n_unfeas']
