@@ -37,6 +37,11 @@ df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
 # print(best)
 
+if experiment_kind == 'red':
+  relative_ymax = 0.8
+else:
+  relative_ymax = 2 if experiment_kind == 'full' else 7
+
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 rng_to_par_to_results = {m: {} for m in main_rng_seeds}
@@ -206,7 +211,7 @@ for main_rng in main_rng_seeds:
                         zorder=-2)
   # Other plot goodies
   if use_relative:
-    ax[0].set_ylim(-0.01, 0.8)
+    ax[0].set_ylim(-0.01, relative_ymax)
     title_distance = "Relative regret"
   else:
     floor = np.floor(-best['target'] / 10**3) * 10**3
@@ -250,7 +255,7 @@ for par in parallelism_levels:
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                       zorder=-2)
 if use_relative:
-  ax[0].set_ylim(-0.01, 0.5)
+  ax[0].set_ylim(-0.01, relative_ymax)
   title_distance = "Relative regret"
 else:
   floor = np.floor(-best['target'] / 10**3) * 10**3
