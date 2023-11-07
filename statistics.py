@@ -21,13 +21,13 @@ import pandas as pd
 experiment_kind = 'red'
 use_relative = True
 use_incumbents = True
-parallelism_levels = [1, 4]
-indep_seq_runs = 4
+parallelism_levels = [1, 10]
+indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
 rmsd_threshold = 2 if experiment_kind == 'red' else 2.1
 opt_constraints = {'RMSD_0.75': (0, rmsd_threshold)}
-root_output_folder = f'old/outputs_ligen_{experiment_kind}'
+root_output_folder = f'outputs_ligen_{experiment_kind}'
 
 # Find real optimum
 df_truth = pd.read_csv(os.path.join('resources', 'ligen',
@@ -272,8 +272,8 @@ plot_file = os.path.join(root_output_folder,
                          f'par_vs_{indep_seq_runs}_all.png')
 fig.savefig(plot_file, bbox_inches='tight', dpi=300)
 
-# Compute scalar global metrics
-print("Global metrics:")
+# Compute scalar global metrics, print them and save them to file
+strg = "Global metrics:\n"
 for par in parallelism_levels:
   nums_unfeas = [ rng_to_par_to_results[r][par]['avg_n_unfeas']
                   for r in main_rng_seeds ]
@@ -281,6 +281,10 @@ for par in parallelism_levels:
                 for r in main_rng_seeds ]
   avg_dists_fea_unf = [ rng_to_par_to_results[r][par]['avg_dist_fea_unf']
                         for r in main_rng_seeds ]
-  print(f"par = {par}: avg_n_unfeas = {np.mean(nums_unfeas)}, "
-        f"avg_dist = {np.mean(avg_dists)}, "
-        f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}")
+  strg += (f"par = {par}: avg_n_unfeas = {np.mean(nums_unfeas)}, "
+           f"avg_dist = {np.mean(avg_dists)}, "
+           f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}\n")
+print(strg)
+res_file = os.path.join(root_output_folder, 'results.txt')
+with open(res_file, 'w') as f:
+  f.write(strg)
