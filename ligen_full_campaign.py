@@ -74,9 +74,9 @@ def run_experiment(rng):
     optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj,
                           output_folder)
 
-    # Get `par` random initial points
+    # Get random initial points
     np.random.seed(rng)
-    df_init = domain_df.sample(n=parallelism)
+    df_init = domain_df.sample(n=2*parallelism)
 
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
@@ -95,7 +95,7 @@ print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
       flush=True)
 
 # Loop over paralellism levels and RNG seeds
-for par in [1, parallelism]:
+for par in [parallelism, 1]:
   # Initialize RNG seeds
   rng_seeds = [root_rng_seed+i for i in range(num_runs)]
   # Further seeds for independent sequential runs
