@@ -30,8 +30,7 @@ from pamaliboo.optimizer import Optimizer
 
 
 # Campaign parameters
-parallelism_levels = [1, 10]
-indep_seq_runs = 10
+parallelism = 10
 num_runs = 10
 num_iter = 60
 root_rng_seed = 20230524
@@ -77,7 +76,7 @@ def run_experiment(rng):
 
     # Get `par` random initial points
     np.random.seed(rng)
-    df_init = domain_df.sample(n=par)
+    df_init = domain_df.sample(n=parallelism)
 
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
@@ -96,15 +95,15 @@ print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
       flush=True)
 
 # Loop over paralellism levels and RNG seeds
-for par in parallelism_levels:
+for par in [1, parallelism]:
   # Initialize RNG seeds
   rng_seeds = [root_rng_seed+i for i in range(num_runs)]
   # Further seeds for independent sequential runs
-  if par == 1 and indep_seq_runs > 1:
+  if par == 1 and parallelism > 1:
     for r in list(rng_seeds):
-      group_seeds = [r] + [10*r+i for i in range(indep_seq_runs-1)]
+      group_seeds = [r] + [10*r+i for i in range(parallelism-1)]
       # Run such experiments in parallel
-      with Pool(indep_seq_runs) as pool:
+      with Pool(parallelism) as pool:
         pool.map(run_experiment, group_seeds)
       print("Parallel batch completed\n" + 40*"-" + "\n\n")
   else:
