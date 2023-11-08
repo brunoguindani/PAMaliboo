@@ -23,7 +23,7 @@ from .dataframe import FileDataFrame
 from .gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from .jobs import JobStatus, JobSubmitter
 from .objectives import ObjectiveFunction
-from .utils import dict_to_array, join_Xy
+from .utils import dict_to_array, join_Xy, numpy_to_str, str_to_numpy
 
 
 class Optimizer:
@@ -119,7 +119,7 @@ class Optimizer:
                                               self.history_filename))
     jobs_queue = FileDataFrame(os.path.join(self.output_folder,
                                             self.queue_filename),
-                               columns=['path', 'iteration'])
+                               columns=['path', 'iteration', 'x'])
     other_info = FileDataFrame(os.path.join(self.output_folder,
                                             self.other_info_filename),
                                columns=['domain_idx', 'acquisition',
@@ -141,15 +141,16 @@ class Optimizer:
       self.logger.debug("Recovering finished jobs (if any)")
       queue_df = jobs_queue.get_df()
       self.logger.debug("Current queue status: %s", queue_df.to_dict())
+      recovered_queue_ids = []
       for queue_id, queue_row in queue_df.iterrows():
-        queue_file, queue_iter = queue_row
+        queue_file, queue_iter, x_queue = queue_row
+        x_queue = str_to_numpy(x_queue)
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           self.logger.debug("Job %d has finished", queue_id)
           # Recover objective value from output file and the corresponding x
           output_path = os.path.join(self.job_submitter.output_folder,
                                      queue_file)
           y_real = self.objective.parse_and_evaluate(output_path)
-          x_queue = self.gp.get_point(queue_iter)[:-1]
           self.logger.info("Recovered real objective value %f for job %d, "
                            "which had x=%s", y_real, queue_id, x_queue)
           # Recover additional objective information
@@ -161,7 +162,9 @@ class Optimizer:
 
           # Replace fake evaluation with correct one in the GP
           self.logger.debug("Updating point in GP...")
-          self.gp.remove_point(queue_iter)
+          if queue_iter in self.gp.database:
+            self.gp.remove_point(queue_iter)
+          recovered_queue_ids.append(queue_id)
           self.gp.add_point(queue_iter, x_queue, y_real)
 
           self.logger.debug("Recording new real point...")
@@ -174,6 +177,19 @@ class Optimizer:
           jobs_queue.remove_row(queue_id)
 
       self.logger.debug("Recovering of finished jobs completed")
+
+      # If a new true point was recorded, the next point will be chosen only
+      # according to the true knowledge: we therefore remove fake evaluations
+      # from the GP. Note that such points will still be present in the queue
+      if recovered_queue_ids:
+        self.logger.debug("Real objective value(s) have been recovered: "
+                          "deleting all fake values...")
+        for queue_id, queue_row in queue_df.iterrows():
+          queue_iter = queue_row['iteration']
+          # check that the point was not one whose true value we just recovered
+          if queue_id not in recovered_queue_ids:
+            self.gp.remove_point(queue_iter)
+        self.logger.debug("Fake points deleted")
 
       # Skip iteration if queue is full
       if curr_iter < n_iter and len(jobs_queue) == parallelism_level:
@@ -203,7 +219,7 @@ class Optimizer:
       output_file = self.output_file_fmt.format(curr_iter)
       job_id = self.job_submitter.submit(cmd, output_file)
       self.logger.debug("Job submitted with id %d", job_id)
-      jobs_queue.add_row(job_id, [output_file, curr_iter])
+      jobs_queue.add_row(job_id, [output_file, curr_iter, numpy_to_str(x_new)])
 
       # Add fake objective value to the GP
       y_fake = self._get_fake_objective_value(x_new)
@@ -221,7 +237,6 @@ class Optimizer:
     # Clean up after ending the loop
     self.history = None
     self.logger.info("End of optimization algorithm")
-    self.logger.info("Bye!")
 
 
   def _find_next_point(self, curr_iter: int) -> Tuple[np.ndarray, int, float]:
