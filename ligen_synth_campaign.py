@@ -32,7 +32,7 @@ from pamaliboo.optimizer import Optimizer
 # Campaign parameters
 parallelism = 10
 num_runs = 10
-num_iter = 500
+num_iter = 100
 root_rng_seed = 20230524
 root_output_folder = 'outputs_ligen_synth'
 ml_models = [Ridge()]
