@@ -187,7 +187,8 @@ class Optimizer:
         for queue_id, queue_row in queue_df.iterrows():
           queue_iter = queue_row['iteration']
           # check that the point was not one whose true value we just recovered
-          if queue_id not in recovered_queue_ids:
+          if (queue_id not in recovered_queue_ids and
+              queue_iter in self.gp.database):
             self.gp.remove_point(queue_iter)
         self.logger.debug("Fake points deleted")
 
