@@ -18,8 +18,8 @@ import pandas as pd
 
 
 # Campaign parameters
-experiment_kind = 'red'
-use_relative = True
+experiment_kind = 'full'
+use_relative = False
 use_incumbents = True
 parallelism_levels = [1, 10]
 indep_seq_runs = 10
@@ -35,12 +35,8 @@ df_truth = pd.read_csv(os.path.join('resources', 'ligen',
 df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
-# print(best)
 
-if experiment_kind == 'red':
-  relative_ymax = 0.8
-else:
-  relative_ymax = 2 if experiment_kind == 'full' else 7
+relative_ymax = 2 if experiment_kind == 'full' else 7
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -120,21 +116,13 @@ for main_rng in main_rng_seeds:
         # ...or target value
         dists = -points
 
-      # Remove initial points
-      noninit = (hist.index != -1)
-      feas = feas.loc[noninit]
-      points = points.loc[noninit]
-      dists = dists.loc[noninit]
-
       # Distance considering both feasible and unfeasible points, either:
-      targets = hist.loc[noninit, 'target']
       if use_relative:
         # ...simple relative regret
-        dist_fea_unf = (targets - best['target']) / best['target']
+        dist_fea_unf = (hist['target'] - best['target']) / best['target']
       else:
         # ...or target value
-        dist_fea_unf = -points
-      avg_dist_fea_unf = dist_fea_unf.cummin().mean()
+        dist_fea_unf = -hist['target']
 
       # Get optimizer times for each evaluation
       discrete_times = info['optimizer_time']
@@ -154,7 +142,7 @@ for main_rng in main_rng_seeds:
       # Add stuff to results dictionaries
       n_unfeas_dic[rng] = (~feas).sum()
       avg_dist_dic[rng] = dists.mean()
-      avg_dist_fea_unf_dic[rng] = avg_dist_fea_unf
+      avg_dist_fea_unf_dic[rng] = dist_fea_unf.cummin().mean()
       mape_dic[rng] = info['train_MAPE']
       time_dist_dic[rng] = time_dist
 
@@ -214,8 +202,6 @@ for main_rng in main_rng_seeds:
     ax[0].set_ylim(-0.01, relative_ymax)
     title_distance = "Relative regret"
   else:
-    floor = np.floor(-best['target'] / 10**3) * 10**3
-    ax[0].set_ylim(floor, 2*floor)
     title_distance = "Target values"
   title_points = "incumbents" if use_incumbents else "points"
   ax[0].set_xlabel("time [s]")
@@ -258,8 +244,6 @@ if use_relative:
   ax[0].set_ylim(-0.01, relative_ymax)
   title_distance = "Relative regret"
 else:
-  floor = np.floor(-best['target'] / 10**3) * 10**3
-  ax[0].set_ylim(floor, 2*floor)
   title_distance = "Target values"
 title_points = "incumbents" if use_incumbents else "points"
 ax[0].set_xlabel("time [s]")
