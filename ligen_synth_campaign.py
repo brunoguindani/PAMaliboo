@@ -18,7 +18,6 @@ import os
 import pandas as pd
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
-import sys
 import time
 
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
@@ -50,8 +49,7 @@ timeout = 1
 
 # Initialize and set relevant stuff
 domain_df = pd.read_csv(domain, index_col='index')
-debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
-logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 # Function for a single experiment
