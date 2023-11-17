@@ -32,9 +32,10 @@ from pamaliboo.optimizer import Optimizer
 # Campaign parameters
 parallelism = 10
 num_runs = 10
-num_iter = 100
+num_iter = 1000
+n_init = 20
 root_rng_seed = 20230524
-root_output_folder = 'outputs_ligen_synth'
+root_output_folder = f'outputs_ligen_synth_init{n_init}'
 ml_models = [Ridge()]
 
 # Other parameters
@@ -76,7 +77,7 @@ def run_experiment(rng):
 
     # Get random initial points
     np.random.seed(rng)
-    df_init = domain_df.sample(n=2*parallelism)
+    df_init = domain_df.sample(n_init)
 
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
