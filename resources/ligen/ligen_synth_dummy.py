@@ -13,5 +13,5 @@ norm = lambda y : np.linalg.norm(x-y)
 idx = domain.apply(norm, axis=1).argmin()
 # Print relevant metrics
 rmsd, time = df.loc[idx, ['RMSD_0.75', 'TIME_TOTAL']]
-sleep(time/500)
+sleep(time/10)
 print(rmsd, time)
