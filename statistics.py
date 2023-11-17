@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -18,16 +19,16 @@ import pandas as pd
 
 
 # Campaign parameters
-experiment_kind = 'full'
+experiment_kind = 'synth'
 use_relative = False
 use_incumbents = True
 parallelism_levels = [1, 10]
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
-rmsd_threshold = 2 if experiment_kind == 'red' else 2.1
+rmsd_threshold = 2.1
 opt_constraints = {'RMSD_0.75': (0, rmsd_threshold)}
-root_output_folder = f'outputs_ligen_{experiment_kind}'
+root_output_folder = f'old/outputs_10_v2/outputs_ligen_{experiment_kind}'
 
 # Find real optimum
 df_truth = pd.read_csv(os.path.join('resources', 'ligen',
@@ -72,6 +73,9 @@ for main_rng in main_rng_seeds:
     time_dist_dic = dict.fromkeys(group_seeds, None)
     ## Time elapsed at end of an execution -> feasibility of the execution
     time_feas_dic = {}
+    ## Elapsed time after computing first configuration via BO (i.e. duration
+    ## of initial points exploration + some acquisition overhead)
+    initial_times_dic = dict.fromkeys(group_seeds, None)
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -145,6 +149,7 @@ for main_rng in main_rng_seeds:
       avg_dist_fea_unf_dic[rng] = dist_fea_unf.cummin().mean()
       mape_dic[rng] = info['train_MAPE']
       time_dist_dic[rng] = time_dist
+      initial_times_dic[rng] = info.loc[0, 'optimizer_time']
 
     # Combine vectors of metrics into single DataFrames
     group_avg_mape = pd.concat(mape_dic.values(), axis=1).mean(axis=1)
@@ -163,6 +168,8 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
     par_to_results[par]['time_feas'] = time_feas_dic
+    # Initial exploration times
+    par_to_results[par]['initial_times'] = initial_times_dic
     # Write metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
 
@@ -191,6 +198,9 @@ for main_rng in main_rng_seeds:
       facecolor = color if feas else 'none'
       ax[0].scatter(time_approx, times_dists[time_approx], marker='o', s=12,
                     edgecolor=color, facecolors=facecolor, linewidths=0.5)
+    # Draw lines for initial exploration times
+    for t_init in par_to_results[par]['initial_times'].values():
+      ax[0].axvline(t_init, ls='-.', lw=0.5, color=color)
 
     # Second plot: MAPE over iterations
     ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
@@ -198,6 +208,7 @@ for main_rng in main_rng_seeds:
   ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                         zorder=-2)
   # Other plot goodies
+  ## For first plot
   if use_relative:
     ax[0].set_ylim(-0.01, relative_ymax)
     title_distance = "Relative regret"
@@ -208,6 +219,11 @@ for main_rng in main_rng_seeds:
   ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_title(f"{title_distance} of {title_points}")
   ax[0].legend()
+  handles, labels = ax[0].get_legend_handles_labels()
+  handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
+  labels.append('start of BO')
+  ax[0].legend(handles=handles, labels=labels)
+  # For second plot
   ax[1].set_xlabel("iterations")
   ax[1].set_ylim(-0.01, 0.1)
   ax[1].grid(axis='y', alpha=0.4)
@@ -231,6 +247,9 @@ for par in parallelism_levels:
                        for r in main_rng_seeds], axis=1)
   df_dist = df_dist.fillna(method='ffill').mean(axis=1)
   ax[0].plot(df_dist, lw=1, label=label)
+  color = ax[0].lines[-1].get_color()
+  avg_init_time = np.mean(list(par_to_results[par]['initial_times'].values()))
+  ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
   # Second plot: MAPE over iterations
   df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
                        for r in main_rng_seeds], axis=1).fillna(method='ffill')
@@ -238,6 +257,7 @@ for par in parallelism_levels:
   ax[1].plot(df_mape, marker='o', label=label)
 
 # Other plot goodies
+## For first plot
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                       zorder=-2)
 if use_relative:
@@ -250,6 +270,11 @@ ax[0].set_xlabel("time [s]")
 ax[0].grid(axis='y', alpha=0.4)
 ax[0].set_title(f"{title_distance} of {title_points}")
 ax[0].legend()
+handles, labels = ax[0].get_legend_handles_labels()
+handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
+labels.append('start of BO')
+ax[0].legend(handles=handles, labels=labels)
+## For second plot
 ax[1].set_xlabel("iterations")
 ax[1].set_ylim(-0.01, 0.1)
 ax[1].grid(axis='y', alpha=0.4)
