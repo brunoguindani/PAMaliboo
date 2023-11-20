@@ -22,7 +22,7 @@ from pamaliboo.objectives import LigenSynthDummyObjective
 
 
 # Campaign parameters
-num_runs = 5
+num_runs = 10
 num_iter = 1000
 root_rng_seed = 20230524
 timeout = 15
