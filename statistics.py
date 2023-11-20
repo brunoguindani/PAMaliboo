@@ -22,7 +22,7 @@ import pandas as pd
 experiment_kind = 'synth'
 use_relative = False
 use_incumbents = True
-parallelism_levels = [1, 10]
+parallelism_levels = [1, 10]  # 'random'
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
@@ -147,13 +147,15 @@ for main_rng in main_rng_seeds:
       n_unfeas_dic[rng] = (~feas).sum()
       avg_dist_dic[rng] = dists.mean()
       avg_dist_fea_unf_dic[rng] = dist_fea_unf.cummin().mean()
-      mape_dic[rng] = info['train_MAPE']
+      if 'train_MAPE' in info.columns:
+        mape_dic[rng] = info['train_MAPE']
       time_dist_dic[rng] = time_dist
       initial_times_dic[rng] = info.loc[0, 'optimizer_time']
 
     # Combine vectors of metrics into single DataFrames
-    group_avg_mape = pd.concat(mape_dic.values(), axis=1).mean(axis=1)
-    group_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)
+    group_avg_mape = pd.concat(mape_dic.values(), axis=1).mean(axis=1) \
+                     if 'train_MAPE' in info.columns else None
+    group_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)    
     # Stop at the earliest time at which a seed has finished
     end_time = np.min([d.index[-1] for d in time_dist_dic.values()])
     group_time_dist = group_time_dist.loc[:end_time]
@@ -202,8 +204,9 @@ for main_rng in main_rng_seeds:
     for t_init in par_to_results[par]['initial_times'].values():
       ax[0].axvline(t_init, ls='-.', lw=0.5, color=color)
 
-    # Second plot: MAPE over iterations
-    ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
+    # Second plot: MAPE over iterations (only if available)
+    if par_to_results[par]['avg_mape'] is not None:
+      ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
     ground = 0 if use_relative else -best['target']
   ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                         zorder=-2)
@@ -250,11 +253,14 @@ for par in parallelism_levels:
   color = ax[0].lines[-1].get_color()
   avg_init_time = np.mean(list(par_to_results[par]['initial_times'].values()))
   ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
-  # Second plot: MAPE over iterations
-  df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
-                       for r in main_rng_seeds], axis=1).fillna(method='ffill')
-  df_mape = df_mape.fillna(method='ffill').mean(axis=1)
-  ax[1].plot(df_mape, marker='o', label=label)
+  # Second plot: MAPE over iterations (only if available)
+  try:
+    df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
+                     for r in main_rng_seeds], axis=1).fillna(method='ffill')
+    df_mape = df_mape.fillna(method='ffill').mean(axis=1)
+    ax[1].plot(df_mape, marker='o', label=label)
+  except:
+    pass
 
 # Other plot goodies
 ## For first plot
