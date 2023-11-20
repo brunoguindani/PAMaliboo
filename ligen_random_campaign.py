@@ -24,9 +24,10 @@ from pamaliboo.objectives import LigenSynthDummyObjective
 # Campaign parameters
 num_runs = 10
 num_iter = 1000
+n_init = 20
 root_rng_seed = 20230524
 timeout = 15
-root_output_folder = f'outputs_ligen_synth_random_{num_iter}'
+root_output_folder = f'outputs_ligen_synth_init{n_init}'
 domain = os.path.join('resources', 'ligen', 'ligen_synth_domain.csv')
 
 # Initialize and set other relevant stuff
@@ -41,7 +42,7 @@ for rng in rng_seeds:
   print(f"New run with RNG seed {rng}")
   start_time = time.time()
   # Folder and file names for this experiment
-  output_folder = os.path.join(root_output_folder, f'rng_{rng}')
+  output_folder = os.path.join(root_output_folder, 'par_random', f'rng_{rng}')
   history_file = os.path.join(output_folder, 'history.csv')
   info_file = os.path.join(output_folder, 'info.csv')
   os.makedirs(output_folder, exist_ok=True)
@@ -53,7 +54,7 @@ for rng in rng_seeds:
 
   # Get all random configurations
   np.random.seed(rng)
-  all_configs = domain_df.sample(num_iter)
+  all_configs = domain_df.sample(n_init + num_iter)
 
   # Submit all jobs and place them in the jobs queue
   for idx, conf in all_configs.iterrows():
