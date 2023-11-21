@@ -22,9 +22,10 @@ from pamaliboo.objectives import LigenSynthDummyObjective
 
 
 # Campaign parameters
+parallelism = 10
 num_runs = 10
-num_iter = 1000
 n_init = 20
+num_iter = 1000 + n_init
 root_rng_seed = 20230524
 timeout = 15
 root_output_folder = f'outputs_ligen_synth_init{n_init}'
@@ -54,17 +55,10 @@ for rng in rng_seeds:
 
   # Get all random configurations
   np.random.seed(rng)
-  all_configs = domain_df.sample(n_init + num_iter)
+  all_configs = domain_df.sample(num_iter)
 
-  # Submit all jobs and place them in the jobs queue
-  for idx, conf in all_configs.iterrows():
-    cmd = objective.execution_command(conf)
-    stdout_file = f'batch_{idx}.stdout'
-    job_id = job_submitter.submit(cmd, stdout_file)
-    df_queue.loc[job_id] = [idx, stdout_file]
-
-  num_iter = 0
-  while True:
+  curr_iter = 0
+  while curr_iter < num_iter or len(df_queue) > 0:
     # Loop on jobs to find finished ones
     for job_id, [config_idx, job_file] in df_queue.iterrows():
       if job_submitter.get_job_status(job_id) == JobStatus.FINISHED:
@@ -78,19 +72,36 @@ for rng in rng_seeds:
         # Update DataFrames and clean up files
         df_queue.drop(job_id, inplace=True)
         df_history.loc[config_idx, info.keys()] = info.values()
-        df_info.loc[num_iter, 'optimizer_time'] = time.time() - start_time
+        df_info.loc[config_idx, 'optimizer_time'] = time.time() - start_time
         logger.debug("Iteration: %d, time elapsed: %d",
-                     num_iter, df_info.loc[num_iter, 'optimizer_time'])
-        num_iter += 1
+                     curr_iter, df_info.loc[config_idx, 'optimizer_time'])
         os.remove(output_path)
 
-    if df_queue.empty:
-      break
-    else:
+    # Skip iteration if queue is full
+    if curr_iter < num_iter and len(df_queue) == parallelism:
+      logger.debug("Maximum parallelism level reached: sleeping for "
+                   "%.2f seconds...", timeout)
+      time.sleep(timeout)
+      continue
+    # Skip iteration if the last iteration was reached
+    elif curr_iter == num_iter:
+      if len(df_queue) > 0:
+        logger.debug("Unfinished jobs at end of algorithm: sleeping "
+                     "for %.2f seconds...", timeout)
+        time.sleep(timeout)
+      continue
+
+    conf = all_configs.iloc[curr_iter]
+    cmd = objective.execution_command(conf)
+    stdout_file = f'batch_{curr_iter}.stdout'
+    job_id = job_submitter.submit(cmd, stdout_file)
+    df_queue.loc[job_id] = [curr_iter, stdout_file]
+
+    curr_iter += 1
+
+    if not df_queue.empty:
       df_history.to_csv(history_file, index_label='index')
       df_info.to_csv(info_file, index_label='index')
-      logger.debug("Unfinished jobs: sleeping for %d seconds...", timeout)
-      time.sleep(timeout)
 
   # Save data one last time
   df_history.to_csv(history_file, index_label='index')
