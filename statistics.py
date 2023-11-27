@@ -22,13 +22,12 @@ import pandas as pd
 experiment_kind = 'synth'
 use_relative = False
 use_incumbents = True
-parallelism_levels = [1, 10]  # 'random'
+parallelism_levels = [1, 10, 'random']
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
-rmsd_threshold = 2.1
-opt_constraints = {'RMSD_0.75': (0, rmsd_threshold)}
-root_output_folder = f'old/outputs_10_v2/outputs_ligen_{experiment_kind}'
+opt_constraints = {'RMSD_0.75': (0, 2.1)}
+root_output_folder = f'old/outputs_synth_p10_init20_long'
 
 # Find real optimum
 df_truth = pd.read_csv(os.path.join('resources', 'ligen',
@@ -36,8 +35,6 @@ df_truth = pd.read_csv(os.path.join('resources', 'ligen',
 df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
 df_truth.sort_values(by='target', inplace=True, ascending=False)
 best = df_truth.iloc[0]
-
-relative_ymax = 2 if experiment_kind == 'full' else 7
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -181,7 +178,7 @@ for main_rng in main_rng_seeds:
   for par in parallelism_levels:
     par_n_unf = par_to_results[par]['avg_n_unfeas']
     num_indep_runs = par_to_results[par]['num_indep_runs']
-    label = f"parallelism {par}, {num_indep_runs} instance(s)"
+    label = f"parallelism {par}"
     print(f"par = {par}: avg_n_unfeas = {par_n_unf}, "
           f"avg_dist = {par_to_results[par]['avg_dist']}")
 
@@ -212,19 +209,16 @@ for main_rng in main_rng_seeds:
                         zorder=-2)
   # Other plot goodies
   ## For first plot
-  if use_relative:
-    ax[0].set_ylim(-0.01, relative_ymax)
-    title_distance = "Relative regret"
-  else:
-    title_distance = "Target values"
+  title_distance = "Relative regret" if use_relative else "Target values"
   title_points = "incumbents" if use_incumbents else "points"
+  title_full = f"{title_distance} of {title_points}"
   ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
-  ax[0].set_title(f"{title_distance} of {title_points}")
+  ax[0].set_title(title_full)
   ax[0].legend()
   handles, labels = ax[0].get_legend_handles_labels()
   handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
-  labels.append('start of BO')
+  labels.append("start of BO")
   ax[0].legend(handles=handles, labels=labels)
   # For second plot
   ax[1].set_xlabel("iterations")
@@ -244,7 +238,7 @@ fig, ax = plt.subplots(2, 1, figsize=(8, 8))
 for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
-  label = f"parallelism {par}, {num_indep_runs} instance(s)"
+  label = f"parallelism {par}"
   # First plot: average distance over time
   df_dist = pd.concat([rng_to_par_to_results[r][par]['time_dist']
                        for r in main_rng_seeds], axis=1)
@@ -266,19 +260,13 @@ for par in parallelism_levels:
 ## For first plot
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                       zorder=-2)
-if use_relative:
-  ax[0].set_ylim(-0.01, relative_ymax)
-  title_distance = "Relative regret"
-else:
-  title_distance = "Target values"
-title_points = "incumbents" if use_incumbents else "points"
 ax[0].set_xlabel("time [s]")
 ax[0].grid(axis='y', alpha=0.4)
-ax[0].set_title(f"{title_distance} of {title_points}")
+ax[0].set_title(title_full)
 ax[0].legend()
 handles, labels = ax[0].get_legend_handles_labels()
 handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
-labels.append('start of BO')
+labels.append("start of BO")
 ax[0].legend(handles=handles, labels=labels)
 ## For second plot
 ax[1].set_xlabel("iterations")
