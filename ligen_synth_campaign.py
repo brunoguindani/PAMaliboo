@@ -18,6 +18,7 @@ import os
 import pandas as pd
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
+import sys
 import time
 
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
@@ -31,11 +32,12 @@ from pamaliboo.optimizer import Optimizer
 # Campaign parameters
 parallelism = 10
 num_runs = 10
-num_iter = 1000
+num_iter_seq = 100
 n_init = 20
-root_rng_seed = 20230524
+root_rng_seed = 20230524  # int(sys.argv[1])
 root_output_folder = f'outputs_ligen_synth_init{n_init}'
 ml_models = [Ridge()]
+all_parallelism_levels = [parallelism, 1]
 
 # Other parameters
 opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
@@ -86,7 +88,8 @@ def run_experiment(rng):
 
     # Perform optimization
     optimizer.initialize(init_history)
-    optimizer.maximize(n_iter=num_iter, parallelism_level=par, timeout=timeout)
+    optimizer.maximize(n_iter=num_iter_seq*par, parallelism_level=par,
+                       timeout=timeout)
     print("Run completed", flush=True)
 
 
@@ -94,7 +97,7 @@ print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
       flush=True)
 
 # Loop over paralellism levels and RNG seeds
-for par in [parallelism, 1]:
+for par in all_parallelism_levels:
   # Initialize RNG seeds
   rng_seeds = [root_rng_seed+i for i in range(num_runs)]
   # Further seeds for independent sequential runs
