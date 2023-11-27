@@ -182,7 +182,9 @@ for main_rng in main_rng_seeds:
     # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
+    par_to_results[par]['time_dist_all'] = time_dist_dic
     par_to_results[par]['time_feas'] = time_feas_dic
+    par_to_results[par]['end_time'] = end_time
     # Initial exploration times
     par_to_results[par]['initial_times'] = initial_times_dic
     # Write all group metrics into the global results dict
@@ -203,6 +205,11 @@ for main_rng in main_rng_seeds:
     times_dists = par_to_results[par]['time_dist']
     ax[0].plot(times_dists, lw=1, label=label+f" (unfeasible: {par_n_unf})")
     color = ax[0].lines[-1].get_color()
+    # Plot individual agents in the case of parallelism 1
+    if par == 1:
+      for t_d in par_to_results[par]['time_dist_all'].values():
+        e_t = par_to_results[par]['end_time']
+        ax[0].plot(t_d.loc[:e_t], lw=0.5, color=color)
     # Loop on iterations (their optimizer time and feasibility)
     for t, feas in par_to_results[par]['time_feas'].items():
       # Compute approximation of optimizer time on the time grid
