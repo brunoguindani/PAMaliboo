@@ -19,7 +19,6 @@ import pandas as pd
 
 
 # Campaign parameters
-experiment_kind = 'synth'
 use_relative = False
 use_incumbents = True
 parallelism_levels = [1, 10, 'random']
@@ -27,14 +26,24 @@ indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
-root_output_folder = f'old/outputs_synth_p10_init20_long'
+target_col = '-RMSD^3*TIME'
+root_output_folder = os.path.join('old', 'outputs_synth_p10_init20_long')
+df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 
-# Find real optimum
-df_truth = pd.read_csv(os.path.join('resources', 'ligen',
-                                   f'ligen_{experiment_kind}_table.csv'))
-df_truth['target'] = -df_truth['RMSD_0.75'] ** 3 * df_truth['TIME_TOTAL']
-df_truth.sort_values(by='target', inplace=True, ascending=False)
-best = df_truth.iloc[0]
+# Find real feasible optimum
+df_all = pd.read_csv(df_all_file)
+## NOTE: this script changes the signs of the target function, and looks for
+## the minimum value. This is different than the library code, which seeks to
+## maximize the target value
+df_all[target_col] *= -1
+## Find feasible points
+df_all['feas'] = True
+for key, (lb, ub) in opt_constraints.items():
+  df_all['feas'] = df_all['feas'] & (lb <= df_all[key]) & (df_all[key] <= ub)
+df_feas = df_all[ df_all['feas'] == True ]
+## Find point with minimum target value among those points
+best = df_feas.loc[ df_feas[target_col] == df_feas[target_col].min() ].iloc[0]
+ground = 0 if use_relative else best[target_col]
 
 # Initialize main RNG seeds
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -45,8 +54,8 @@ for main_rng in main_rng_seeds:
   par_to_results = {p: {} for p in parallelism_levels}
   for par in parallelism_levels:
     # For independent sequential experiments, each main RNG seed has a *group*
-    # of `indep_seq_runs` linked RNG seeds, which includes the main seed
-    # itself. Otherwise, the group reduces to just the main seed
+    # of indep_seq_runs linked RNG seeds, which includes the main seed itself.
+    # Otherwise, the group reduces to just the main seed
     group_seeds = [main_rng]
     if par == 1 and indep_seq_runs > 1:
       other_seeds = [10*main_rng+i for i in range(indep_seq_runs-1)]
@@ -54,19 +63,21 @@ for main_rng in main_rng_seeds:
     print(f">>> par = {par}, main_rng = {main_rng}, -> {group_seeds}")
 
     # Initialize results dictionaries for this group: each entry links an RNG
-    # seed in the group (i.e. an individual run) to a certain measurement:
+    # seed in the group (i.e. an individual run) to a certain measurement.
+    # By 'distance' we mean either relative regret or raw target values,
+    # according to the value of use_relative
     # SCALAR METRICS
     ## Number of unfeasible executions
     n_unfeas_dic = dict.fromkeys(group_seeds, None)
-    ## Average distance (e.g. regret) on feasible points over all iterations
+    ## Average distance on feasible points over all iterations
     avg_dist_dic = dict.fromkeys(group_seeds, None)
-    ## Average distance (e.g. regret) on all points (both feasible and
-    ## unfeasible) over all iterations
+    ## Average distance on all points (both feasible and unfeasible) over all
+    ## iterations
     avg_dist_fea_unf_dic = dict.fromkeys(group_seeds, None)
     # VECTORS OF METRICS
     ## MAPE on all iterations
     mape_dic = dict.fromkeys(group_seeds, None)
-    ## Distance (e.g. regret) over time
+    ## Distance over time
     time_dist_dic = dict.fromkeys(group_seeds, None)
     ## Time elapsed at end of an execution -> feasibility of the execution
     time_feas_dic = {}
@@ -81,6 +92,8 @@ for main_rng in main_rng_seeds:
                                                        f'rng_{rng}')
       hist = pd.read_csv(os.path.join(output_folder, 'history.csv'),
                          index_col='index')
+      ## We change the signs here as well, since we want to minimize
+      hist['target'] *= -1
       # Also get the recorded additional information
       info = pd.read_csv(os.path.join(output_folder, 'info.csv'),
                          index_col='index')
@@ -97,7 +110,7 @@ for main_rng in main_rng_seeds:
         curr = np.nan
         for i in range(hist.shape[0]):
           if feas.iloc[i] and (curr is np.nan
-                               or hist['target'].iloc[i] > curr):
+                               or hist['target'].iloc[i] < curr):
             curr = hist['target'].iloc[i]
           points.append(curr)
       else:
@@ -111,19 +124,19 @@ for main_rng in main_rng_seeds:
 
       # Compute distance from ground truth, either:
       if use_relative:
-        # ...simple relative regret
-        dists = (points - best['target']) / best['target']
+        # ...simple relative regret wrt the true minimum
+        dists = (points - best[target_col]) / best[target_col]
       else:
-        # ...or target value
-        dists = -points
+        # ...or target value (which we are minimizing)
+        dists = points
 
-      # Distance considering both feasible and unfeasible points, either:
+      # Distance vector considering both feasible & unfeasible points, either:
       if use_relative:
-        # ...simple relative regret
-        dist_fea_unf = (hist['target'] - best['target']) / best['target']
+        # ...simple relative regret wrt the true minimum
+        dist_fea_unf = (hist['target'] - best[target_col]) / best[target_col]
       else:
-        # ...or target value
-        dist_fea_unf = -hist['target']
+        # ...or target value (which we are minimizing)
+        dist_fea_unf = hist['target']
 
       # Get optimizer times for each evaluation
       discrete_times = info['optimizer_time']
@@ -149,30 +162,34 @@ for main_rng in main_rng_seeds:
       time_dist_dic[rng] = time_dist
       initial_times_dic[rng] = info.loc[0, 'optimizer_time']
 
-    # Combine vectors of metrics into single DataFrames
+    # We have looped on RNG seeds of this group.
+    # Now we combine vectors of metrics into single DataFrames
     group_avg_mape = pd.concat(mape_dic.values(), axis=1).mean(axis=1) \
                      if 'train_MAPE' in info.columns else None
-    group_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)    
-    # Stop at the earliest time at which a seed has finished
+    ## In group_time_dist, we take the best (smallest) value of the group at
+    ## each time instant
+    group_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)
+    # Stop at the earliest time at which a seed in the group has finished
     end_time = np.min([d.index[-1] for d in time_dist_dic.values()])
     group_time_dist = group_time_dist.loc[:end_time]
 
-    # Collect scalar metrics
+    # Collect scalar metrics for the group
     par_to_results[par]['avg_n_unfeas'] = np.mean(list(n_unfeas_dic.values()))
     par_to_results[par]['avg_dist'] = np.mean(list(avg_dist_dic.values()))
     par_to_results[par]['avg_dist_fea_unf'] = \
                        np.mean(list(avg_dist_fea_unf_dic.values()))
     par_to_results[par]['num_indep_runs'] = len(group_seeds)
-    # Collect combined vecctors of metrics
+    # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
     par_to_results[par]['time_feas'] = time_feas_dic
     # Initial exploration times
     par_to_results[par]['initial_times'] = initial_times_dic
-    # Write metrics into the global results dict
+    # Write all group metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
 
-  # For each main RNG seeed, print and plot stuff
+  # We have looped on all parallelism levels.
+  # Now, for the current main RNG seed, we print and plot stuff
   print(f"For main RNG seed {main_rng}:")
   fig, ax = plt.subplots(2, 1, figsize=(8, 8))
   for par in parallelism_levels:
@@ -189,10 +206,11 @@ for main_rng in main_rng_seeds:
     # Loop on iterations (their optimizer time and feasibility)
     for t, feas in par_to_results[par]['time_feas'].items():
       # Compute approximation of optimizer time on the time grid
-      if t > times_dists.index[-1]:
-        time_approx = times_dists.index[-1]
-      else:
+      if t <= times_dists.index[-1]:
         time_approx = times_dists.index[times_dists.index > t][0]
+      else:
+        # if beyond last grid element, approximate to last grid element
+        time_approx = times_dists.index[-1]
       # Plot iteration differently according to its feasibility
       facecolor = color if feas else 'none'
       ax[0].scatter(time_approx, times_dists[time_approx], marker='o', s=12,
@@ -204,14 +222,13 @@ for main_rng in main_rng_seeds:
     # Second plot: MAPE over iterations (only if available)
     if par_to_results[par]['avg_mape'] is not None:
       ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
-    ground = 0 if use_relative else -best['target']
-  ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
-                        zorder=-2)
   # Other plot goodies
   ## For first plot
-  title_distance = "Relative regret" if use_relative else "Target values"
-  title_points = "incumbents" if use_incumbents else "points"
-  title_full = f"{title_distance} of {title_points}"
+  ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
+                        zorder=-2)
+  title_part1 = "Relative regret" if use_relative else "Target values"
+  title_part2 = "incumbents" if use_incumbents else "points"
+  title_full = f"{title_part1} of {title_part2}"
   ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_title(title_full)
@@ -258,8 +275,7 @@ for par in parallelism_levels:
 
 # Other plot goodies
 ## For first plot
-ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
-                      zorder=-2)
+ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
 ax[0].set_xlabel("time [s]")
 ax[0].grid(axis='y', alpha=0.4)
 ax[0].set_title(title_full)
