@@ -27,7 +27,7 @@ num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'synth_p10_init20')
+root_output_folder = os.path.join('outputs', 'synth_SVRpolytol10_p10_init40')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 
 # Find real feasible optimum
@@ -330,7 +330,8 @@ labels.append("start of BO")
 ax[0].legend(handles=handles, labels=labels)
 ## For second plot
 ax[1].set_xlabel("iterations")
-ax[1].set_ylim(-0.01, 0.1)
+mape_ylim = 0.2 if 'SVR' in output_folder else 0.1  # TODO meh...
+ax[1].set_ylim(-0.01, mape_ylim)
 ax[1].grid(axis='y', alpha=0.4)
 ax[1].set_title("Training MAPE")
 ax[1].legend()
