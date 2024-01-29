@@ -18,6 +18,7 @@ import os
 import pandas as pd
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVR
 import sys
 import time
 
@@ -33,11 +34,12 @@ from pamaliboo.optimizer import Optimizer
 parallelism = 10
 num_runs = 10
 num_iter_seq = 100
-n_init = 20
+n_init = 40
 root_rng_seed = 20230524  # int(sys.argv[1])
-root_output_folder = f'outputs_ligen_synth_init{n_init}'
-ml_models = [Ridge()]
-all_parallelism_levels = [parallelism, 1]
+pool_seq_parallelism = 4
+root_output_folder = f'synth_init{n_init}'
+ml_models = [SVR(kernel='poly', tol=10)]
+all_parallelism_levels = [1]
 
 # Other parameters
 opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
@@ -105,7 +107,7 @@ for par in all_parallelism_levels:
     for r in list(rng_seeds):
       group_seeds = [r] + [10*r+i for i in range(parallelism-1)]
       # Run such experiments in parallel
-      with Pool(parallelism) as pool:
+      with Pool(pool_seq_parallelism) as pool:
         pool.map(run_experiment, group_seeds)
       print("Parallel batch completed\n" + 40*"-" + "\n\n")
   else:
