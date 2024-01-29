@@ -21,13 +21,13 @@ import pandas as pd
 # Campaign parameters
 use_relative = False
 use_incumbents = True
-parallelism_levels = [1, 10, 'random']
+parallelism_levels = [10, 1]
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('old', 'outputs_synth_p10_init20_long')
+root_output_folder = os.path.join('outputs', 'synth_p10_init20')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 
 # Find real feasible optimum
@@ -67,15 +67,20 @@ for main_rng in main_rng_seeds:
     # By 'distance' we mean either relative regret or raw target values,
     # according to the value of use_relative
     # SCALAR METRICS
-    ## Percentage of unfeasible executions (including initial points)
+    ## Percentage of unfeasible executions including initial points
     perc_unfeas_dic = dict.fromkeys(group_seeds, None)
+    ## Number of feasible executions including initial points
+    n_feas_dic = dict.fromkeys(group_seeds, None)
     ## Number of unfeasible executions excluding initial points
-    n_unfeas_noinit_dic = dict.fromkeys(group_seeds, None)    
+    n_unfeas_noinit_dic = dict.fromkeys(group_seeds, None)
     ## Average distance on feasible points over all iterations
     avg_dist_dic = dict.fromkeys(group_seeds, None)
     ## Average distance on all points (both feasible and unfeasible) over all
     ## iterations
     avg_dist_fea_unf_dic = dict.fromkeys(group_seeds, None)
+    ## Sums of execution times of target functions (unfeasible and total)
+    exec_times_unfeas_dic = dict.fromkeys(group_seeds, None)
+    exec_times_total_dic = dict.fromkeys(group_seeds, None)
     # VECTORS OF METRICS
     ## MAPE on all iterations
     mape_dic = dict.fromkeys(group_seeds, None)
@@ -158,8 +163,14 @@ for main_rng in main_rng_seeds:
       for t, feas_t in zip(discrete_times, feas):
         time_feas_dic[t] = feas_t
 
+      # Execution times of target functions (recall: f(x) = RMSD^3(x) * T(x))
+      exec_times = hist['target'] / hist['RMSD_0.75'] ** 3
+      exec_times_unfeas_dic[rng] = exec_times[~feas].sum()
+      exec_times_total_dic[rng] = exec_times.sum()
+
       # Add stuff to results dictionaries
       perc_unfeas_dic[rng] = (~feas).sum() / hist.shape[0]
+      n_feas_dic[rng] = feas.sum()
       n_unfeas_noinit_dic[rng] = ( (~feas.loc[feas.index != -1]).sum() )
       avg_dist_dic[rng] = dists.mean()
       avg_dist_fea_unf_dic[rng] = dist_fea_unf.cummin().mean()
@@ -188,6 +199,14 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['avg_dist_fea_unf'] = \
                        np.mean(list(avg_dist_fea_unf_dic.values()))
     par_to_results[par]['num_indep_runs'] = len(group_seeds)
+    par_to_results[par]['indep_runs_iters'] = hist.shape[0]
+    exec_times_unfeas = sum(exec_times_unfeas_dic.values())
+    exec_times_total = sum(exec_times_total_dic.values())
+    n_feas = sum(n_feas_dic.values())
+    par_to_results[par]['exec_times_unfeas'] = exec_times_unfeas
+    par_to_results[par]['exec_times_total'] = exec_times_total
+    par_to_results[par]['avg_feas_exec_time'] = \
+                        (exec_times_total - exec_times_unfeas) / n_feas
     # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
@@ -206,11 +225,19 @@ for main_rng in main_rng_seeds:
   for par in parallelism_levels:
     par_n_unf = par_to_results[par]['avg_perc_unfeas']
     par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
+    exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
+    exec_times_total = par_to_results[par]['exec_times_total']
+    avg_feas_exec_time = par_to_results[par]['avg_feas_exec_time']
+
     label = f"parallelism {par}"
     print(f"par = {par}: avg_perc_unfeas = {round(par_n_unf, 3)}, "
           f"avg_n_unfeas_noinit = {par_n_unf_noinit}, "
-          f"avg_dist = {round(par_to_results[par]['avg_dist'],3)}")
+          f"avg_dist = {round(par_to_results[par]['avg_dist'], 3)}, "
+          f"avg_feas_exec_time = {avg_feas_exec_time}, "
+          f"exec_times_unfeas = "
+          f"{round(exec_times_unfeas / exec_times_total, 3)}")
 
+    # Comment from here for not creating the plots
     # First plot: distance and feasibility of executions over time
     times_dists = par_to_results[par]['time_dist']
     ax[0].plot(times_dists, lw=1, label=label+f" (unfeasible: {par_n_unf})")
@@ -312,6 +339,7 @@ fig.subplots_adjust(hspace=0.25)
 plot_file = os.path.join(root_output_folder,
                          f'par_vs_{indep_seq_runs}_all.png')
 fig.savefig(plot_file, bbox_inches='tight', dpi=300)
+# Comment until here for not creating the plots
 
 # Compute scalar global metrics, print them and save them to file
 strg = "Global metrics:\n"
@@ -324,10 +352,20 @@ for par in parallelism_levels:
                 for r in main_rng_seeds ]
   avg_dists_fea_unf = [ rng_to_par_to_results[r][par]['avg_dist_fea_unf']
                         for r in main_rng_seeds ]
+  exec_times_unfeas = [ rng_to_par_to_results[r][par]['exec_times_unfeas']
+                        for r in main_rng_seeds ]
+  exec_times_total = [ rng_to_par_to_results[r][par]['exec_times_total']
+                       for r in main_rng_seeds ]
+  exec_times_ratio = [u/t for u, t in zip(exec_times_unfeas, exec_times_total)]
+  avg_feas_exec_times = [ rng_to_par_to_results[r][par]['avg_feas_exec_time']
+                          for r in main_rng_seeds ]
   strg += (f"par = {par}: avg_perc_unfeas = {np.mean(nums_unfeas)}, "
            f"avg_n_unfeas_noinit = {np.mean(nums_unfeas_noinit)}, "
            f"avg_dist = {np.mean(avg_dists)}, "
-           f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}\n")
+           f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}, "
+           f"avg_feas_exec_time = {np.mean(avg_feas_exec_times)}, "
+           f"exec_times_unfeas = "
+           f"{np.mean(exec_times_ratio).round(3)}\n")
 print(strg)
 res_file = os.path.join(root_output_folder, 'results.txt')
 with open(res_file, 'w') as f:
