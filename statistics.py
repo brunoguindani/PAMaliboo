@@ -29,6 +29,7 @@ opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs', 'synth_SVRpolytol10_p10_init40')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
+mape_ylim = 0.2 if 'SVR' in root_output_folder else 0.1
 
 # Find real feasible optimum
 df_all = pd.read_csv(df_all_file)
@@ -205,8 +206,7 @@ for main_rng in main_rng_seeds:
     n_feas = sum(n_feas_dic.values())
     par_to_results[par]['exec_times_unfeas'] = exec_times_unfeas
     par_to_results[par]['exec_times_total'] = exec_times_total
-    par_to_results[par]['avg_feas_exec_time'] = \
-                        (exec_times_total - exec_times_unfeas) / n_feas
+    par_to_results[par]['exec_time_over_nfeas'] = exec_times_total / n_feas
     # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
@@ -227,13 +227,13 @@ for main_rng in main_rng_seeds:
     par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
     exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
     exec_times_total = par_to_results[par]['exec_times_total']
-    avg_feas_exec_time = par_to_results[par]['avg_feas_exec_time']
+    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']
 
     label = f"parallelism {par}"
     print(f"par = {par}: avg_perc_unfeas = {round(par_n_unf, 3)}, "
           f"avg_n_unfeas_noinit = {par_n_unf_noinit}, "
           f"avg_dist = {round(par_to_results[par]['avg_dist'], 3)}, "
-          f"avg_feas_exec_time = {avg_feas_exec_time}, "
+          f"exec_time_over_nfeas = {exec_time_over_nfeas}, "
           f"exec_times_unfeas = "
           f"{round(exec_times_unfeas / exec_times_total, 3)}")
 
@@ -283,7 +283,7 @@ for main_rng in main_rng_seeds:
   ax[0].legend(handles=handles, labels=labels)
   # For second plot
   ax[1].set_xlabel("iterations")
-  ax[1].set_ylim(-0.01, 0.1)
+  ax[1].set_ylim(-0.01, mape_ylim)
   ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
   ax[1].legend()
@@ -330,7 +330,6 @@ labels.append("start of BO")
 ax[0].legend(handles=handles, labels=labels)
 ## For second plot
 ax[1].set_xlabel("iterations")
-mape_ylim = 0.2 if 'SVR' in output_folder else 0.1  # TODO meh...
 ax[1].set_ylim(-0.01, mape_ylim)
 ax[1].grid(axis='y', alpha=0.4)
 ax[1].set_title("Training MAPE")
@@ -358,13 +357,13 @@ for par in parallelism_levels:
   exec_times_total = [ rng_to_par_to_results[r][par]['exec_times_total']
                        for r in main_rng_seeds ]
   exec_times_ratio = [u/t for u, t in zip(exec_times_unfeas, exec_times_total)]
-  avg_feas_exec_times = [ rng_to_par_to_results[r][par]['avg_feas_exec_time']
+  exec_times_over_nf = [ rng_to_par_to_results[r][par]['exec_time_over_nfeas']
                           for r in main_rng_seeds ]
   strg += (f"par = {par}: avg_perc_unfeas = {np.mean(nums_unfeas)}, "
            f"avg_n_unfeas_noinit = {np.mean(nums_unfeas_noinit)}, "
            f"avg_dist = {np.mean(avg_dists)}, "
            f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}, "
-           f"avg_feas_exec_time = {np.mean(avg_feas_exec_times)}, "
+           f"exec_time_over_nfeas = {np.mean(exec_times_over_nf)}, "
            f"exec_times_unfeas = "
            f"{np.mean(exec_times_ratio).round(3)}\n")
 print(strg)
