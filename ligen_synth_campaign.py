@@ -37,9 +37,9 @@ num_iter_seq = 100
 n_init = 40
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
-root_output_folder = f'synth_init{n_init}'
-ml_models = [SVR(kernel='poly', tol=10)]
-all_parallelism_levels = [1]
+root_output_folder = os.path.join('outputs', f'synth_SVR_init{n_init}')
+ml_models = [SVR()]
+all_parallelism_levels = [10, 1]
 
 # Other parameters
 opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
