@@ -164,6 +164,11 @@ for main_rng in main_rng_seeds:
       for t, feas_t in zip(discrete_times, feas):
         time_feas_dic[t] = feas_t
 
+      # Shrink optimizer time based on parallelism level
+      if isinstance(par, int):
+        time_dist.index = time_dist.index / par
+        time_feas_dic = {t/par: f for t, f in time_feas_dic.items()}
+
       # Execution times of target functions (recall: f(x) = RMSD^3(x) * T(x))
       exec_times = hist['target'] / hist['RMSD_0.75'] ** 3
       exec_times_unfeas_dic[rng] = exec_times[~feas].sum()
@@ -240,7 +245,8 @@ for main_rng in main_rng_seeds:
     # Comment from here for not creating the plots
     # First plot: distance and feasibility of executions over time
     times_dists = par_to_results[par]['time_dist']
-    ax[0].plot(times_dists, lw=1, label=label+f" (unfeasible: {par_n_unf})")
+    ax[0].plot(times_dists, lw=1,
+                            label=label+f" (unfeasible: {par_n_unf:.3f})")
     color = ax[0].lines[-1].get_color()
     # Plot individual agents in the case of parallelism 1
     if par == 1:
@@ -304,10 +310,17 @@ for par in parallelism_levels:
   df_dist = pd.concat([rng_to_par_to_results[r][par]['time_dist']
                        for r in main_rng_seeds], axis=1)
   df_dist = df_dist.fillna(method='ffill').mean(axis=1)
-  ax[0].plot(df_dist, lw=1, label=label)
+  ax[0].plot(df_dist, lw=1.5, label=label)
   color = ax[0].lines[-1].get_color()
   avg_init_time = np.mean(list(par_to_results[par]['initial_times'].values()))
   ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
+  ## Plot all ensembles
+  if par == 1:
+    label_ensemble = f"{label} (individual seed)"
+    for r in main_rng_seeds:
+      ax[0].plot(rng_to_par_to_results[r][par]['time_dist'], lw=0.25,
+                 label=label_ensemble, color=color)
+      label_ensemble = None
   # Second plot: MAPE over iterations (only if available)
   try:
     df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
@@ -336,8 +349,11 @@ ax[1].set_title("Training MAPE")
 ax[1].legend()
 fig.subplots_adjust(hspace=0.25)
 # Save global plot
-plot_file = os.path.join(root_output_folder,
-                         f'par_vs_{indep_seq_runs}_all.png')
+try:
+  n_init = os.path.basename(root_output_folder).split('_init')[-1].zfill(3)
+except:
+  n_init = 'results_all'
+plot_file = os.path.join(root_output_folder, f'{n_init}.png')
 fig.savefig(plot_file, bbox_inches='tight', dpi=300)
 # Comment until here for not creating the plots
 
