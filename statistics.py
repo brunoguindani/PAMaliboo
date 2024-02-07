@@ -21,13 +21,14 @@ import pandas as pd
 # Campaign parameters
 use_relative = False
 use_incumbents = True
-parallelism_levels = [10, 1]
+plot_all_ensembles = False
+parallelism_levels = [10, 1, 'random']
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'synth_SVRpolytol10_p10_init40')
+root_output_folder = os.path.join('outputs', 'synth_p10_init20')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 mape_ylim = 0.2 if 'SVR' in root_output_folder else 0.1
 
@@ -164,10 +165,10 @@ for main_rng in main_rng_seeds:
       for t, feas_t in zip(discrete_times, feas):
         time_feas_dic[t] = feas_t
 
-      # Shrink optimizer time based on parallelism level
-      if isinstance(par, int):
-        time_dist.index = time_dist.index / par
-        time_feas_dic = {t/par: f for t, f in time_feas_dic.items()}
+      # # Shrink optimizer time based on parallelism level
+      # if isinstance(par, int):
+      #   time_dist.index = time_dist.index / par
+      #   time_feas_dic = {t/par: f for t, f in time_feas_dic.items()}
 
       # Execution times of target functions (recall: f(x) = RMSD^3(x) * T(x))
       exec_times = hist['target'] / hist['RMSD_0.75'] ** 3
@@ -314,13 +315,22 @@ for par in parallelism_levels:
   color = ax[0].lines[-1].get_color()
   avg_init_time = np.mean(list(par_to_results[par]['initial_times'].values()))
   ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
-  ## Plot all ensembles
+  ## Plot all ensembles or only ensemble bounds
   if par == 1:
-    label_ensemble = f"{label} (individual seed)"
-    for r in main_rng_seeds:
-      ax[0].plot(rng_to_par_to_results[r][par]['time_dist'], lw=0.25,
-                 label=label_ensemble, color=color)
-      label_ensemble = None
+    if plot_all_ensembles:
+      label_ensemble = f"{label} (individual seed)"
+      for r in main_rng_seeds:
+        ax[0].plot(rng_to_par_to_results[r][par]['time_dist'], lw=0.25,
+                   label=label_ensemble, color=color)
+        label_ensemble = None
+    else:
+      label_ensemble = f"{label} (ensemble bounds)"
+      df_all_ensembles = pd.concat([rng_to_par_to_results[r][par]['time_dist']
+                                    for r in main_rng_seeds], axis=1) \
+                                    .fillna(method='ffill', axis=0)
+      ax[0].plot(df_all_ensembles.min(axis=1), lw=0.5, color=color,
+                                                       label=label_ensemble)
+      ax[0].plot(df_all_ensembles.max(axis=1), lw=0.5, color=color)
   # Second plot: MAPE over iterations (only if available)
   try:
     df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
@@ -350,10 +360,10 @@ ax[1].legend()
 fig.subplots_adjust(hspace=0.25)
 # Save global plot
 try:
-  n_init = os.path.basename(root_output_folder).split('_init')[-1].zfill(3)
+  suffix = os.path.basename(root_output_folder).split('_init')[-1].zfill(3)
 except:
-  n_init = 'results_all'
-plot_file = os.path.join(root_output_folder, f'{n_init}.png')
+  suffix = 'opentuner' if 'opentuner' in output_folder else 'results'
+plot_file = os.path.join(root_output_folder, f'all_{suffix}.png')
 fig.savefig(plot_file, bbox_inches='tight', dpi=300)
 # Comment until here for not creating the plots
 
