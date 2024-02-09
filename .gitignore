@@ -15,7 +15,12 @@ __pycache__
 *.pickle
 *.stdout
 output*/
+*.db
+*.log
 
 # Virtual Environment files
 venv/
 *.venv/
+
+# SFTP config files
+sftp-config.json

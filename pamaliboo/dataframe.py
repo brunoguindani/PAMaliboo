@@ -53,6 +53,9 @@ class FileDataFrame:
     self._save()
     return length
 
+  def __contains__(self, idx) -> bool:
+    return idx in self.df.index
+
 
   def _read(self) -> None:
     """Read the DataFrame from file. Internal use only!"""

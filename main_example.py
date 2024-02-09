@@ -14,19 +14,17 @@ limitations under the License.
 import logging
 import numpy as np
 import os
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
-import sys
 
-from pamaliboo.acquisitions import UpperConfidenceBound, ExpectedImprovement, \
-                                   ExpectedImprovementMachineLearning as EIML
+from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
 from pamaliboo.jobs import HyperqueueJobSubmitter
 from pamaliboo.objectives import DummyObjective
 from pamaliboo.optimizer import Optimizer
 
 
-output_folder = 'outputs'
+output_folder = 'outputs_example'
 gp_database = os.path.join(output_folder, 'gp_database.csv')
 init_history = os.path.join('resources', 'dummy_initial.csv')
 domain = os.path.join('resources', 'dummy_domain.csv')
@@ -34,8 +32,7 @@ rng_seed = 42
 
 
 # Initialize and set relevant stuff
-debug = True if '-d' in sys.argv or '--debug' in sys.argv else False
-logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 np.random.seed(rng_seed)
 
 
@@ -46,7 +43,8 @@ features = list(opt_bounds.keys())
 constraints = {'result': (2, 6), 'result^2': (4, 36)}
 model = Ridge()
 acq = EIML(maximize_n_warmup=10, maximize_n_iter=100, constraints=constraints,
-           models=[model, model], pickle_folder=output_folder)
+           models=[model, model], pickle_folder=output_folder,
+           train_periodicity=2)
 kernel = Matern(nu=2.5)
 gp = DGPR(gp_database, feature_names=features, kernel=kernel,
           normalize_y=False)

@@ -13,9 +13,8 @@ limitations under the License.
 
 import logging
 import numpy as np
-from pandas.errors import EmptyDataError
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
+from sklearn.gaussian_process.kernels import Kernel, Matern
 from typing import List, Optional, Tuple, Union
 import warnings
 

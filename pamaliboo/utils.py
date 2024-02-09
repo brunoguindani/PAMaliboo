@@ -32,3 +32,13 @@ def dict_to_array(dic: Dict[str, Tuple[float]]) -> np.ndarray:
 def join_Xy(X: np.ndarray, y: float) -> np.ndarray:
   """Join horizontally a row (or matrix) `X` and a value (or column) `y`"""
   return np.hstack((X, [y]))
+
+
+def numpy_to_str(array: np.ndarray) -> str:
+  """Convert a `numpy.array` into a list of numbers in string form"""
+  return '/'.join([str(_) for _ in array])
+
+
+def str_to_numpy(strg: str) -> np.ndarray:
+  """Convert a list of numbers in string form, into a `numpy.array`"""
+  return np.array([float(_) for _ in strg.split('/')])

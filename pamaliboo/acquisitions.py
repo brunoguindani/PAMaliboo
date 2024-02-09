@@ -12,6 +12,8 @@ limitations under the License.
 """
 
 from abc import ABC, abstractmethod
+import atexit
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import numpy as np
 import os
@@ -165,13 +167,14 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
   solver = 'Nelder-Mead'
 
   def __init__(self, constraints: Dict[str, Tuple[float, float]],
-               models: List[BaseEstimator],
+               models: List[BaseEstimator], train_periodicity: int,
                pickle_folder: Optional[str] = None, *args, **kwargs):
     """
     Parameters
     ----------
     `constraints`: maps names of constrained resources to lower/upper bounds
     `models`: ML models which will be used to model each of these resources
+    `train_periodicity`: models will only be trained every this many iterations
     `pickle_folder`: if given, ML models will be saved there in Pickle form
     """
     self.logger = logging.getLogger(__name__)
@@ -181,30 +184,20 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
     super().__init__(*args, **kwargs)
     self.constraints = constraints
     self.models = dict(zip(constraints.keys(), models))
+    self.train_periodicity = train_periodicity
     self.pickle_folder = pickle_folder
+    self.executor = ThreadPoolExecutor(max_workers=2)
+    atexit.register(self.executor.shutdown)
 
   def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
                    -> None:
     """Update state of the acquisition function, e.g. the Gaussian Process"""
-    # Get real historical data for the training of the models
-    history_df = history.get_df()
-    self.logger.debug("Training ML models")
-    for key in self.models:
-      self.logger.debug("On column %s...", key)
-      X = history_df[gp.feature_names].values
-      y = history_df[key].values
-      fitted = self.models[key].fit(X, y)
-      self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
-                                                                   y.shape)
-      error = mape(y, fitted.predict(X))
-      self.logger.debug("Training MAPE = %f", error)
-      # Save model to pickle file, if output path was initialized
-      if self.pickle_folder is not None:
-        model_file = os.path.join(self.pickle_folder, f'model_{key}.pickle')
-        with open(model_file, 'wb') as f:
-          pickle.dump(fitted, f)
-        self.logger.debug("Model saved to file")
-    self.logger.debug("ML models trained successfully")
+    if num_iter == 0:
+      # Launch training synchronously
+      self.train_model(gp, history, num_iter)
+    elif num_iter % self.train_periodicity == 0:
+      # Launch training asynchronously
+      self.executor.submit(self.train_model, gp, history, num_iter)
     super().update_state(gp, history, num_iter)
 
   def evaluate(self, x: np.ndarray) -> float:
@@ -222,3 +215,30 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
       indicator = np.array([lb <= q <= ub for q in q_pred])
       ret *= indicator
     return ret
+
+  def train_model(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                  -> None:
+    """
+    Train ML models; function arguments are the same as `update_state()`
+    """
+    # Get real historical data for the training of the models
+    history_df = history.get_df()
+    self.logger.debug("Training ML models")
+    models_temp = self.models.copy()
+    for key in models_temp:
+      self.logger.debug("On column %s...", key)
+      X = history_df[gp.feature_names].values
+      y = history_df[key].values
+      fitted = models_temp[key].fit(X, y)
+      self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
+                                                                   y.shape)
+      self.train_MAPE = mape(y, fitted.predict(X))
+      self.logger.debug("Training MAPE = %f", self.train_MAPE)
+      # Save model to pickle file, if output path was initialized
+      if self.pickle_folder is not None:
+        model_file = os.path.join(self.pickle_folder, f'model_{key}.pickle')
+        with open(model_file, 'wb') as f:
+          pickle.dump(fitted, f)
+        self.logger.debug("Model saved to file")
+    self.models = models_temp
+    self.logger.debug("ML models trained successfully")

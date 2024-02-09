@@ -128,8 +128,38 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       output_list = f.read().strip().split(',')
-    exe_time = float(output_List[11])
-    rmsd_list = [float(_) for _ in output_List[14].split('/')]
+    exe_time = float(output_list[11])
+    rmsd_list = [float(_) for _ in output_list[14].split('/')]
     rmsd = np.quantile(rmsd_list, 0.75)
     objective_value = -rmsd ** 3 * exe_time
     return objective_value
+
+
+class LigenReducedDummyObjective(ObjectiveFunction):
+  script_name = 'ligen_reduced_dummy.py'
+  def execution_command(self, x: np.ndarray) -> List[str]:
+    """Return the command to execute the target with the given configuration"""
+    return ['python', f'resources/ligen/{self.script_name}'] + \
+           [str(_) for _ in x]
+
+  def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse given output file and return the function evaluation"""
+    with open(output_file, 'r') as f:
+      rmsd, time = f.read().strip().split()
+    val = -float(rmsd) ** 3 * float(time)
+    return val
+
+  def parse_additional_info(self, output_file: str) -> Dict[str, float]:
+    """Parse given output file and return additional auxiliary information"""
+    with open(output_file, 'r') as f:
+      rmsd, time = f.read().strip().split()
+    info = {'RMSD_0.75': float(rmsd)}
+    return info
+
+
+class LigenFullDummyObjective(LigenReducedDummyObjective):
+  script_name = 'ligen_full_dummy.py'
+
+
+class LigenSynthDummyObjective(LigenReducedDummyObjective):
+  script_name = 'ligen_synth_dummy.py'
