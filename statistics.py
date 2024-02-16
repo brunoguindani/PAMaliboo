@@ -22,13 +22,13 @@ import pandas as pd
 use_relative = False
 use_incumbents = True
 plot_all_ensembles = False
-parallelism_levels = [10, 1, 'random']
+parallelism_levels = [10, 1]
 indep_seq_runs = 10
 num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'synth_p10_init20')
+root_output_folder = os.path.join('outputs', 'synth_SVR_p10_init40')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 mape_ylim = 0.2 if 'SVR' in root_output_folder else 0.1
 
@@ -302,7 +302,7 @@ for main_rng in main_rng_seeds:
   print()
 
 # Make global plot
-fig, ax = plt.subplots(2, 1, figsize=(8, 8))
+fig, ax = plt.subplots(3, 1, figsize=(8, 12))
 for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
@@ -317,6 +317,9 @@ for par in parallelism_levels:
   ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
+    df_all_ensembles = pd.concat([rng_to_par_to_results[r][par]['time_dist']
+                                  for r in main_rng_seeds], axis=1) \
+                         .fillna(method='ffill', axis=0)
     if plot_all_ensembles:
       label_ensemble = f"{label} (individual seed)"
       for r in main_rng_seeds:
@@ -325,12 +328,12 @@ for par in parallelism_levels:
         label_ensemble = None
     else:
       label_ensemble = f"{label} (ensemble bounds)"
-      df_all_ensembles = pd.concat([rng_to_par_to_results[r][par]['time_dist']
-                                    for r in main_rng_seeds], axis=1) \
-                                    .fillna(method='ffill', axis=0)
       ax[0].plot(df_all_ensembles.min(axis=1), lw=0.5, color=color,
                                                        label=label_ensemble)
       ax[0].plot(df_all_ensembles.max(axis=1), lw=0.5, color=color)
+  elif par == indep_seq_runs:
+    df_par_async = df_dist.copy()
+
   # Second plot: MAPE over iterations (only if available)
   try:
     df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
@@ -339,6 +342,20 @@ for par in parallelism_levels:
     ax[1].plot(df_mape, marker='o', label=label)
   except:
     pass
+
+# Make rankings plot
+if len(parallelism_levels) > 1:
+  df_par_async = df_par_async.loc[df_all_ensembles.index]
+  # This counts how many ensembles beat the PA model at time t, for each t.
+  # By adding 1, one obtains the ranking of the PA model wrt the ensembles
+  comp = lambda x : x < df_par_async
+  df_ranking = 1 + df_all_ensembles.apply(comp, axis=0).sum(axis=1)
+  ax[2].plot(df_ranking)
+  ax[2].set_title("Ranking of centralized model vs ensembles")
+  ax[2].set_xlabel("time [s]")
+  ax[2].set_ylabel("ranking")
+  ax[2].set_yticks(np.arange(1, num_runs+1.01, 1))
+  ax[2].grid(axis='y', alpha=0.4)
 
 # Other plot goodies
 ## For first plot
