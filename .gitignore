@@ -24,3 +24,6 @@ venv/
 
 # SFTP config files
 sftp-config.json
+
+# Archive folder
+old/
