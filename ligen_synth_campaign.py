@@ -18,9 +18,8 @@ import os
 import pandas as pd
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
-from sklearn.svm import SVR
-import sys
-import time
+# from sklearn.neighbors import KNeighborsRegressor
+# from sklearn.svm import SVR
 
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
@@ -37,8 +36,9 @@ num_iter_seq = 100
 n_init = 40
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
-root_output_folder = os.path.join('outputs', f'synth_SVR_init{n_init}')
-ml_models = [SVR()]
+root_output_folder = os.path.join('outputs', f'synth_p10_init{n_init}')
+log_file = os.path.basename(root_output_folder) + '.log'
+ml_models = [Ridge()]
 all_parallelism_levels = [10, 1]
 
 # Other parameters
@@ -53,12 +53,16 @@ timeout = 1
 
 # Initialize and set relevant stuff
 domain_df = pd.read_csv(domain, index_col='index')
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s|%(name)s|%(levelname)s|%(message)s',
+                    level=logging.DEBUG, datefmt='%Y-%m-%dT%H:%M:%S',
+                    handlers=[logging.FileHandler(log_file),
+                              logging.StreamHandler()])
+logger = logging.getLogger(__name__)
 
 
 # Function for a single experiment
 def run_experiment(rng):
-    print(f"New run with parallelism {par} and RNG seed {rng}")
+    logger.info("New run with RNG seed %d", rng)
     # Create output folder for this experiment
     output_folder = os.path.join(root_output_folder, f'par_{par}',
                                                      f'rng_{rng}')
@@ -92,27 +96,30 @@ def run_experiment(rng):
     optimizer.initialize(init_history)
     optimizer.maximize(n_iter=num_iter_seq*par, parallelism_level=par,
                        timeout=timeout)
-    print("Run completed", flush=True)
+    logger.info("Run with RNG seed %d completed", rng)
 
-
-print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-      flush=True)
 
 # Loop over paralellism levels and RNG seeds
+logger.info("Starting experiment campaign with parallelism = %d, n_init = %d",
+            parallelism, n_init)
 for par in all_parallelism_levels:
+  logger.info("Starting experiments with par = %d", par)
   # Initialize RNG seeds
   rng_seeds = [root_rng_seed+i for i in range(num_runs)]
+  logger.info("List of main RNG seeds: %s", rng_seeds)
   # Further seeds for independent sequential runs
   if par == 1 and parallelism > 1:
     for r in list(rng_seeds):
       group_seeds = [r] + [10*r+i for i in range(parallelism-1)]
+      logger.info("List of RNG seeds of batch: %s", group_seeds)
       # Run such experiments in parallel
       with Pool(pool_seq_parallelism) as pool:
         pool.map(run_experiment, group_seeds)
-      print("Parallel batch completed\n" + 40*"-" + "\n\n")
+      logger.info("Parallel batch completed")
   else:
     for rng in rng_seeds:
       run_experiment(rng)
+  logger.info("Experiments with par = %d completed", par)
 
-print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-      flush=True)
+logger.info("Experiment campaign completed")
+logger.info("Bye!")
