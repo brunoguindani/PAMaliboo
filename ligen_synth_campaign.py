@@ -33,10 +33,11 @@ from pamaliboo.optimizer import Optimizer
 parallelism = 10
 num_runs = 10
 num_iter_seq = 100
-n_init = 40
+n_init = 5
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
-root_output_folder = os.path.join('outputs', f'synth_p10_init{n_init}')
+root_output_folder = os.path.join('outputs',
+                                 f'synth_p{parallelism}_init{n_init}')
 log_file = os.path.basename(root_output_folder) + '.log'
 ml_models = [Ridge()]
 all_parallelism_levels = [10, 1]
