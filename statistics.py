@@ -28,9 +28,14 @@ num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'synth_SVR_p10_init40')
+root_output_folder = os.path.join('outputs', 'synth_SVR_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
-mape_ylim = 0.2 if 'SVR' in root_output_folder else 0.1
+if 'SVR' in root_output_folder:
+  mape_ylim = 0.2
+elif 'error' in root_output_folder:
+  mape_ylim = 0.5
+else:
+  mape_ylim = 0.1
 
 # Find real feasible optimum
 df_all = pd.read_csv(df_all_file)
