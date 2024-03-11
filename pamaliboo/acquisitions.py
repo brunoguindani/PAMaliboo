@@ -242,3 +242,62 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
         self.logger.debug("Model saved to file")
     self.models = models_temp
     self.logger.debug("ML models trained successfully")
+
+
+class ExpectedImprovementMLWithError(ExpectedImprovementMachineLearning):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.num_iter = 0
+    self.error_max_iter = 50
+    self.error_init_val = 1.5
+
+  def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                   -> None:
+    super().update_state(gp, history, num_iter)
+    self.num_iter = num_iter
+
+  def error_factor(self):
+    if self.num_iter >= self.error_max_iter:
+      return 1
+    discount = (self.error_init_val-1) * self.num_iter / self.error_max_iter
+    return self.error_init_val - discount
+
+
+  def evaluate(self, x: np.ndarray) -> float:
+    """Similar to parent class with two differences: error_factor() and direct
+       call to ExpectedImprovement.evaluate() without super()"""
+    x_ = x.reshape((1, -1)) if x.ndim == 1 else x
+    # Compute regular EI
+    ret = ExpectedImprovement.evaluate(self, x_)
+    # For each constrained quantity, compute indicator of its ML prediction
+    # respecting the constraints
+    for key, bounds in self.constraints.items():
+      lb, ub = bounds
+      q_pred = self.models[key].predict(x_) * self.error_factor()
+      indicator = np.array([lb <= q <= ub for q in q_pred])
+      ret *= indicator
+    return ret
+
+  def train_model(self, gp: GPR, history: FileDataFrame, num_iter: int) \
+                  -> None:
+    """Similar to parent class, but with an error_factor() call"""
+    history_df = history.get_df()
+    self.logger.debug("Training ML models")
+    models_temp = self.models.copy()
+    for key in models_temp:
+      self.logger.debug("On column %s...", key)
+      X = history_df[gp.feature_names].values
+      y = history_df[key].values
+      fitted = models_temp[key].fit(X, y)
+      self.logger.debug("Fitted with training data X=%s and y=%s", X.shape,
+                                                                   y.shape)
+      self.train_MAPE = mape(y, fitted.predict(X)*self.error_factor())
+      self.logger.debug("Training MAPE = %f", self.train_MAPE)
+      # Save model to pickle file, if output path was initialized
+      if self.pickle_folder is not None:
+        model_file = os.path.join(self.pickle_folder, f'model_{key}.pickle')
+        with open(model_file, 'wb') as f:
+          pickle.dump(fitted, f)
+        self.logger.debug("Model saved to file")
+    self.models = models_temp
+    self.logger.debug("ML models trained successfully")
