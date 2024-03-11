@@ -147,34 +147,13 @@ class Optimizer:
         x_queue = str_to_numpy(x_queue)
         if self.job_submitter.get_job_status(queue_id) == JobStatus.FINISHED:
           self.logger.debug("Job %d has finished", queue_id)
+
           # Recover objective value from output file and the corresponding x
-          output_path = os.path.join(self.job_submitter.output_folder,
-                                     queue_file)
-          y_real = self.objective.parse_and_evaluate(output_path)
-          self.logger.info("Recovered real objective value %f for job %d, "
-                           "which had x=%s", y_real, queue_id, x_queue)
-          # Recover additional objective information
-          additional_info = self.objective.parse_additional_info(output_path)
-          self.logger.debug("Recovered additional objective information: %s",
-                            additional_info)
-          os.remove(output_path)
-          self.logger.debug("Deleted file %s", output_path)
-
-          # Replace fake evaluation with correct one in the GP
-          self.logger.debug("Updating point in GP...")
-          if queue_iter in self.gp.database:
-            self.gp.remove_point(queue_iter)
-          recovered_queue_ids.append(queue_id)
-          self.gp.add_point(queue_iter, x_queue, y_real)
-
-          self.logger.debug("Recording new real point...")
-          new_real_point = join_Xy(x_queue, y_real)
-          new_add_info = dict_to_array(additional_info)
-          new_row = np.hstack((new_real_point, new_add_info))
-          self.history.add_row(queue_iter, new_row)
+          self._recover_and_insert_value(queue_file, queue_iter, x_queue)
 
           self.logger.debug("Removing job %d from queue...", queue_id)
           jobs_queue.remove_row(queue_id)
+          recovered_queue_ids.append(queue_id)
 
       self.logger.debug("Recovering of finished jobs completed")
 
@@ -238,6 +217,42 @@ class Optimizer:
     # Clean up after ending the loop
     self.history = None
     self.logger.info("End of optimization algorithm")
+
+
+  def _recover_and_insert_value(self, queue_file: str, queue_iter: int,
+                                x_queue: np.ndarray) -> None:
+    """
+    Recover objective value and additional information. Internal use only!
+
+    Parses `queue_file` to get the value of the objective function and any
+    additional information (deleting the file in the process). It then updates
+    class databases with the recovered values alongside the corresponding
+    configuration value `x_queue`. The new rows will have index `queue_iter` in
+    the databases.
+    """
+    
+    output_path = os.path.join(self.job_submitter.output_folder, queue_file)
+    y_real = self.objective.parse_and_evaluate(output_path)
+    self.logger.info("Recovered real objective value %f, which had x=%s",
+                     y_real, x_queue)
+    # Recover additional objective information
+    additional_info = self.objective.parse_additional_info(output_path)
+    self.logger.debug("Recovered additional objective information: %s",
+                      additional_info)
+    os.remove(output_path)
+    self.logger.debug("Deleted file %s", output_path)
+
+    # Replace fake evaluation with correct one in the GP
+    self.logger.debug("Updating point in GP...")
+    if queue_iter in self.gp.database:
+      self.gp.remove_point(queue_iter)
+    self.gp.add_point(queue_iter, x_queue, y_real)
+
+    self.logger.debug("Recording new real point...")
+    new_real_point = join_Xy(x_queue, y_real)
+    new_add_info = dict_to_array(additional_info)
+    new_row = np.hstack((new_real_point, new_add_info))
+    self.history.add_row(queue_iter, new_row)
 
 
   def _find_next_point(self, curr_iter: int) -> Tuple[np.ndarray, int, float]:
