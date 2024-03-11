@@ -1,11 +1,10 @@
 # Local files
 *.local.*
+old/
+logs/
 
 # Python cache files
 __pycache__
-
-# Shell scripts
-*.sh
 
 # IDE files
 *.sublime-*
@@ -24,6 +23,3 @@ venv/
 
 # SFTP config files
 sftp-config.json
-
-# Archive folder
-old/
