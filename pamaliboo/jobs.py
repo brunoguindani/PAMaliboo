@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from typing import List
 
 
@@ -121,3 +122,33 @@ class HyperqueueJobSubmitter(JobSubmitter):
     raise RuntimeError("get_job_status() received unexpected output by "
                       f"Hyperqueue while checking status of job {job_id}:\n"
                       f"{output}")
+
+
+
+class SimulatorSubmitter(JobSubmitter):
+  """
+  Simulator of a job submitter.
+
+  Rather than submitting `cmd` to a scheduler for asynchronous execution, this
+  class executes it immediately and writes the output to `output_file`.
+  """
+  def submit(self, cmd: List[str], output_file: str) -> int:
+    """
+    Submit a job containing the given command.
+
+    All output from the job will be stored in the given `output_file`. This
+    function returns the identifier (ID) of the submitted job.
+    """
+    file_path = os.path.join(self.output_folder, output_file)
+    self.logger.info("Submitting %s", cmd)
+    self.logger.debug("Output file will be %s", output_file)
+    with open(file_path, 'w') as f:
+      subprocess.run(cmd, stdout=f)
+    self.logger.info("Execution complete")
+    # Return nanoseconds passed since the Unix epoch as a mock-up ID value
+    return time.time_ns()
+
+  def get_job_status(self, job_id: int) -> JobStatus:
+    """Get status of job with the given identifier (ID)"""
+    # Since jobs are executed immediately, they are always finished
+    return JobStatus.FINISHED
