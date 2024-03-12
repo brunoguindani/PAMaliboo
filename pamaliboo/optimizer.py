@@ -290,3 +290,156 @@ class Optimizer:
     Gaussian Process evaluated in `x`.
     """
     return self.gp.predict(x, return_std=False)[0]
+
+
+
+class OptimizerSimulator(Optimizer):
+  """
+  Class that simulates evaluations of the objective function.
+
+  This class is similar to `Optimizer`, but is meant for use with
+  `SimulatorSubmitter` and objective functions whose execution time is known a
+  priori, e.g., from a dataset table. Rather than measuring and recording the
+  actual wallclock time elapsed for optimization, it does so with a clock
+  (`the_clock`) which is set to 0 at the beginning of the optimization
+  procedure and is advanced by the correct amount of time when necessary. This
+  allows a large speed-up when simulating optimization experiments with a time-
+  consuming objective function.
+  This kind of simulation also requires to keep a `countdown` for each pending
+  job, which are recorded as a column of `jobs_queue`.
+  Note that unlike `Optimizer`, this class cannot be fault-tolerant.
+  """
+  def maximize(self, n_iter: int, parallelism_level: int, timeout: float) \
+               -> None:
+    """
+    Main function which performs parallel asynchronous Bayesian Optimization.
+
+    It initializes three databases which are stored in the output folder: the
+    jobs queue, the history of real points evaluated alongside the additional
+    job output information (if any), and other optimization information such as
+    values of the acquisition function.
+
+    Parameters
+    ----------
+    `n_iter`: number of iterations of the algorithm
+    `parallelism_level`: maximum number of jobs running at the same time
+    `timeout`: unused
+    """
+    self.logger.debug("Initializing auxiliary dataframes in maximize()...")
+    self.history = FileDataFrame(os.path.join(self.output_folder,
+                                              self.history_filename))
+    jobs_queue = FileDataFrame(os.path.join(self.output_folder,
+                                            self.queue_filename),
+                               columns=['path', 'iteration', 'x', 'countdown'])
+    other_info = FileDataFrame(os.path.join(self.output_folder,
+                                            self.other_info_filename),
+                               columns=['domain_idx', 'acquisition',
+                                        'train_MAPE', 'optimizer_time'])
+    self.logger.debug("Done")
+
+    curr_iter = 0
+    the_clock = 0
+
+    while curr_iter < n_iter or len(jobs_queue) > 0:
+      # Record time at start of iteration
+      self.logger.debug("Starting new loop iteration")
+      self.logger.debug("The Clock = %f", the_clock)
+      curr_iter_start_time = time.time()
+
+      self.logger.debug("Recovering finished jobs (if any)")
+      queue_df = jobs_queue.get_df()
+      self.logger.debug("Current queue status:\n%s", queue_df)
+      recovered_queue_ids = []
+      for queue_id, queue_row in queue_df.iterrows():
+        queue_file, queue_iter, x_queue, queue_countdown = queue_row
+        x_queue = str_to_numpy(x_queue)
+        if queue_countdown == 0:
+          self.logger.debug("Job %d has finished", queue_id)
+
+          # Recover objective value from output file and the corresponding x
+          self._recover_and_insert_value(queue_file, queue_iter, x_queue)
+
+          self.logger.debug("Removing job %d from queue...", queue_id)
+          jobs_queue.remove_row(queue_id)
+          recovered_queue_ids.append(queue_id)
+
+      self.logger.debug("Recovering of finished jobs completed")
+
+      # Remove fake evaluations from the GP (similar to `Optimizer`)
+      if recovered_queue_ids:
+        self.logger.debug("Real objective value(s) have been recovered: "
+                          "deleting all fake values...")
+        for queue_id, queue_row in queue_df.iterrows():
+          queue_iter = queue_row['iteration']
+          # check that the point was not one whose true value we just recovered
+          if (queue_id not in recovered_queue_ids and
+              queue_iter in self.gp.database):
+            self.gp.remove_point(queue_iter)
+        self.logger.debug("Fake points deleted")
+
+      if curr_iter < n_iter and len(jobs_queue) == parallelism_level:
+        # Skip iteration if queue is full
+        delta_queue = jobs_queue.get_df()['countdown'].min()
+        self.logger.debug("Maximum parallelism level reached; next "
+                          "evaluation will finish in %f seconds", delta_queue)
+      elif curr_iter == n_iter:
+        # Skip iteration if the last iteration was reached
+        delta_queue = jobs_queue.get_df()['countdown'].min()
+        self.logger.debug("Unfinished jobs at end of algorithm; next "
+                          "evaluation will finish in %f seconds", delta_queue)
+      else:
+        # Peform actual iteration
+        self.logger.info("Starting algorithm iteration %d", curr_iter)
+
+        # Find next point to be evaluated
+        x_new, idx_appr, acq_value = self._find_next_point(curr_iter)
+        # Record additional information
+        error = getattr(self.acquisition, 'train_MAPE', None)  # meh...
+        curr_time = the_clock + (time.time() - curr_iter_start_time)
+        self.logger.debug("Recording clock time = %f", curr_time)
+        other_info.add_row(curr_iter, [idx_appr, acq_value, error, curr_time])
+
+        # Submit evaluation of objective
+        cmd = self.objective.execution_command(x_new)
+        output_file = self.output_file_fmt.format(curr_iter)
+        job_id = self.job_submitter.submit(cmd, output_file)
+        self.logger.debug("Job submitted with id %d", job_id)
+        output_path = os.path.join(self.job_submitter.output_folder,
+                                   output_file)
+        new_add_info = self.objective.parse_additional_info(output_path)
+        new_exec_time = new_add_info['evaluation_time']
+        self.logger.debug("Evaluation time will be %f seconds", new_exec_time)
+        jobs_queue.add_row(job_id, [output_file, curr_iter,
+                                    numpy_to_str(x_new), new_exec_time])
+
+        # Add fake objective value to the GP
+        y_fake = self._get_fake_objective_value(x_new)
+        self.logger.info("Fake prediction for %s is %f", x_new, y_fake)
+        self.gp.add_point(curr_iter, x_new, y_fake)
+
+        # Fit Gaussian Process
+        self.logger.debug("Updating GP...")
+        self.gp.fit()
+
+        # At the end of a proper (configuration-choosing) iteration...
+        self.logger.debug("End of iteration %d", curr_iter)
+        curr_iter += 1
+        delta_queue = 0
+
+      # At the end of any kind of iteration...
+      ## Compute elapsed time
+      delta_algo = time.time() - curr_iter_start_time
+      delta = max(delta_queue, delta_algo)
+      self.logger.debug("Advancing The Clock and queue countdowns by "
+                        "%f seconds", delta)
+      the_clock += delta
+      ## Advance countdowns for individual jobs by `delta`
+      queue_df = jobs_queue.get_df()
+      queue_df['countdown'] = (queue_df['countdown'] - delta).clip(lower=0)
+      jobs_queue.set_df(queue_df)
+      self.logger.debug("End of loop iteration")
+
+
+    # Clean up after ending the loop
+    self.history = None
+    self.logger.info("End of optimization algorithm")
