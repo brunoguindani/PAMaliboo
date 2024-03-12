@@ -73,6 +73,12 @@ class FileDataFrame:
     return self.df
 
 
+  def set_df(self, df: pd.DataFrame) -> None:
+    """Set DataFrame object"""
+    self.df = df
+    self._save()
+
+
   def add_row(self, index: int, row: np.ndarray) -> None:
     """Add new row at the given index value"""
     self._read()

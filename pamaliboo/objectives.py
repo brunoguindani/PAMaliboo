@@ -153,7 +153,7 @@ class LigenReducedDummyObjective(ObjectiveFunction):
     """Parse given output file and return additional auxiliary information"""
     with open(output_file, 'r') as f:
       rmsd, time = f.read().strip().split()
-    info = {'RMSD_0.75': float(rmsd)}
+    info = {'RMSD_0.75': float(rmsd), 'evaluation_time': float(time)}
     return info
 
 
@@ -163,3 +163,7 @@ class LigenFullDummyObjective(LigenReducedDummyObjective):
 
 class LigenSynthDummyObjective(LigenReducedDummyObjective):
   script_name = 'ligen_synth_dummy.py'
+
+
+class LigenSimulatedObjective(LigenReducedDummyObjective):
+  script_name = 'ligen_simulated.py'
