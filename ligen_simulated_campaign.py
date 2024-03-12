@@ -24,9 +24,9 @@ from sklearn.linear_model import Ridge
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
-from pamaliboo.jobs import HyperqueueJobSubmitter
-from pamaliboo.objectives import LigenSynthDummyObjective
-from pamaliboo.optimizer import Optimizer
+from pamaliboo.jobs import SimulatorSubmitter
+from pamaliboo.objectives import LigenSimulatedObjective
+from pamaliboo.optimizer import OptimizerSimulator
 
 
 # Campaign parameters
@@ -37,10 +37,10 @@ n_init = 5
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
 root_output_folder = os.path.join('outputs',
-                                 f'synth_p{parallelism}_init{n_init}')
+                                 f'simulated_p{parallelism}_init{n_init}')
 log_file = os.path.basename(root_output_folder) + '.log'
 ml_models = [Ridge()]
-all_parallelism_levels = [10, 1]
+all_parallelism_levels = [parallelism, 1]
 
 # Other parameters
 opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
@@ -74,13 +74,13 @@ def run_experiment(rng):
                train_periodicity=3, pickle_folder=None,
                maximize_n_warmup=10, maximize_n_iter=100)
     kernel = Matern(nu=2.5)
-    obj = LigenSynthDummyObjective(domain_file=domain)
-    job_submitter = HyperqueueJobSubmitter(output_folder)
+    obj = LigenSimulatedObjective(domain_file=domain)
+    job_submitter = SimulatorSubmitter(output_folder)
     batch_ex = BatchExecutor(job_submitter, obj)
     gp_path = os.path.join(output_folder, 'gp_database.csv')
     gp = DGPR(gp_path, feature_names=features, kernel=kernel, normalize_y=True)
-    optimizer = Optimizer(acq, opt_bounds, gp, job_submitter, obj,
-                          output_folder)
+    optimizer = OptimizerSimulator(acq, opt_bounds, gp, job_submitter, obj,
+                                   output_folder)
 
     # Get random initial points
     np.random.seed(rng)
