@@ -123,13 +123,15 @@ class Optimizer:
     other_info = FileDataFrame(os.path.join(self.output_folder,
                                             self.other_info_filename),
                                columns=['domain_idx', 'acquisition',
-                                        'train_MAPE', 'optimizer_time'])
+                                        'train_MAPE', 'optimizer_time',
+                                        'processing_time'])
     self.logger.debug("Done")
 
     curr_iter = 0
     start_time = time.time()
 
     while curr_iter < n_iter or len(jobs_queue) > 0:
+      curr_iter_start_time = time.time()
       # Check for previous interrupted runs
       db_max_idx = self.gp.database.get_df().index.max()
       if curr_iter == 0 and db_max_idx >= 0:
@@ -192,7 +194,9 @@ class Optimizer:
       # Record additional information
       error = getattr(self.acquisition, 'train_MAPE', None)  # meh...
       curr_time = time.time() - start_time
-      other_info.add_row(curr_iter, [idx_appr, acq_value, error, curr_time])
+      processing_time = time.time() - curr_iter_start_time
+      other_info.add_row(curr_iter, [idx_appr, acq_value, error, curr_time,
+                                     processing_time])
 
       # Submit evaluation of objective
       cmd = self.objective.execution_command(x_new)
@@ -334,7 +338,8 @@ class OptimizerSimulator(Optimizer):
     other_info = FileDataFrame(os.path.join(self.output_folder,
                                             self.other_info_filename),
                                columns=['domain_idx', 'acquisition',
-                                        'train_MAPE', 'optimizer_time'])
+                                        'train_MAPE', 'optimizer_time',
+                                        'processing_time'])
     self.logger.debug("Done")
 
     curr_iter = 0
@@ -395,9 +400,11 @@ class OptimizerSimulator(Optimizer):
         x_new, idx_appr, acq_value = self._find_next_point(curr_iter)
         # Record additional information
         error = getattr(self.acquisition, 'train_MAPE', None)  # meh...
-        curr_time = the_clock + (time.time() - curr_iter_start_time)
+        processing_time = time.time() - curr_iter_start_time
+        curr_time = the_clock + processing_time
         self.logger.debug("Recording clock time = %f", curr_time)
-        other_info.add_row(curr_iter, [idx_appr, acq_value, error, curr_time])
+        other_info.add_row(curr_iter, [idx_appr, acq_value, error, curr_time,
+                                       processing_time])
 
         # Submit evaluation of objective
         cmd = self.objective.execution_command(x_new)
