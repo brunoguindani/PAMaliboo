@@ -84,7 +84,7 @@ def run_experiment(rng):
 
     # Get random initial points
     np.random.seed(rng)
-    df_init = domain_df.sample(n_init)
+    df_init = domain_df.sample(n_init*par)
 
     # Run initial points
     res = batch_ex.execute(df_init, timeout=timeout)
