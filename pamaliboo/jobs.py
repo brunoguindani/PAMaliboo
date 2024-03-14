@@ -15,7 +15,9 @@ from abc import ABC, abstractmethod
 from enum import Enum
 import json
 import logging
+import numpy as np
 import os
+import pandas as pd
 import subprocess
 import time
 from typing import List
@@ -152,3 +154,39 @@ class SimulatorSubmitter(JobSubmitter):
     """Get status of job with the given identifier (ID)"""
     # Since jobs are executed immediately, they are always finished
     return JobStatus.FINISHED
+
+
+
+class LigenSimulatorSubmitter(SimulatorSubmitter):
+  """
+  Simulator of a job submitter specific to a dataset.
+
+  Improves efficiency by directly storing the dataset located at `dataset_path`
+  and directly computes the best approximation to the input configuration in
+  `submit()`. This class incorporates what is done by external scripts in other
+  `Submitter`s.
+  """
+  def __init__(self, output_folder: str, dataset_path: str):
+    self.df = pd.read_csv(dataset_path)
+    self.domain = self.df.iloc[:, 0:8].to_numpy()
+    super().__init__(output_folder)
+
+  def submit(self, cmd: List[str], output_file: str) -> int:
+    """
+    Submit a job containing the given command.
+
+    All output from the job will be stored in the given `output_file`. This
+    function returns the identifier (ID) of the submitted job.
+    """
+    file_path = os.path.join(self.output_folder, output_file)
+    self.logger.info("Submitting %s", cmd)
+    self.logger.debug("Output file will be %s", output_file)
+    x = np.array([int(_) for _ in cmd])
+    distances = np.linalg.norm(self.domain - x, axis=1)
+    idx = np.argmin(distances)
+    rmsd, time_total = self.df.iloc[idx].loc[['RMSD_0.75', 'TIME_TOTAL']]
+    with open(file_path, 'w') as f:
+      f.write(f'{rmsd} {time_total}\n')
+    self.logger.info("Execution complete")
+    # Return nanoseconds passed since the Unix epoch as a mock-up ID value
+    return time.time_ns()

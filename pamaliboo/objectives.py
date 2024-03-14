@@ -166,4 +166,7 @@ class LigenSynthDummyObjective(LigenReducedDummyObjective):
 
 
 class LigenSimulatedObjective(LigenReducedDummyObjective):
-  script_name = 'ligen_simulated.py'
+  script_name = None
+  def execution_command(self, x: np.ndarray) -> List[str]:
+    """Return the command to execute the target with the given configuration"""
+    return [str(_) for _ in x]
