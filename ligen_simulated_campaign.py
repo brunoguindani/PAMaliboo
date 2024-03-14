@@ -24,7 +24,7 @@ from sklearn.linear_model import Ridge
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
 from pamaliboo.gaussian_process import DatabaseGaussianProcessRegressor as DGPR
-from pamaliboo.jobs import SimulatorSubmitter
+from pamaliboo.jobs import LigenSimulatorSubmitter
 from pamaliboo.objectives import LigenSimulatedObjective
 from pamaliboo.optimizer import OptimizerSimulator
 
@@ -50,6 +50,7 @@ opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 features = list(opt_bounds.keys())
 domain = os.path.join('resources', 'ligen', 'ligen_synth_domain.csv')
+table = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 timeout = 1
 
 # Initialize and set relevant stuff
@@ -75,7 +76,7 @@ def run_experiment(rng):
                maximize_n_warmup=10, maximize_n_iter=100)
     kernel = Matern(nu=2.5)
     obj = LigenSimulatedObjective(domain_file=domain)
-    job_submitter = SimulatorSubmitter(output_folder)
+    job_submitter = LigenSimulatorSubmitter(output_folder, table)
     batch_ex = BatchExecutor(job_submitter, obj)
     gp_path = os.path.join(output_folder, 'gp_database.csv')
     gp = DGPR(gp_path, feature_names=features, kernel=kernel, normalize_y=True)
