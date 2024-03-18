@@ -245,10 +245,10 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
 
 
 class ExpectedImprovementMLWithError(ExpectedImprovementMachineLearning):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, error_max_iter, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.num_iter = 0
-    self.error_max_iter = 50
+    self.error_max_iter = error_max_iter
     self.error_init_val = 1.5
 
   def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
