@@ -31,7 +31,7 @@ from pamaliboo.optimizer import OptimizerSimulator
 
 # Campaign parameters
 parallelism = 10
-num_runs = 10
+num_runs = 5
 num_iter_seq = 100
 n_init = 5
 root_rng_seed = 20230524  # int(sys.argv[1])
@@ -39,6 +39,7 @@ pool_seq_parallelism = 4
 root_output_folder = os.path.join('outputs',
                                  f'simulated_p{parallelism}_init{n_init}')
 log_file = os.path.basename(root_output_folder) + '.log'
+log_file_path = os.path.join(root_output_folder, log_file)
 ml_models = [Ridge()]
 all_parallelism_levels = [parallelism, 1]
 
@@ -57,7 +58,7 @@ timeout = 1
 domain_df = pd.read_csv(domain, index_col='index')
 logging.basicConfig(format='%(asctime)s|%(name)s|%(levelname)s|%(message)s',
                     level=logging.DEBUG, datefmt='%Y-%m-%dT%H:%M:%S',
-                    handlers=[logging.FileHandler(log_file),
+                    handlers=[logging.FileHandler(log_file_path),
                               logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
