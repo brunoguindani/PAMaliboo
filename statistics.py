@@ -24,12 +24,13 @@ use_incumbents = True
 plot_all_ensembles = False
 parallelism_levels = [10, 1]
 indep_seq_runs = 10
-num_runs = 10
+num_runs = 5
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'synth_SVR_p10_init5')
+root_output_folder = os.path.join('outputs', 'simulated_error100_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
+regret_ylim = 2500
 if 'SVR' in root_output_folder:
   mape_ylim = 0.2
 elif 'error' in root_output_folder:
@@ -366,6 +367,7 @@ if len(parallelism_levels) > 1:
 ## For first plot
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
 ax[0].set_xlabel("time [s]")
+ax[0].set_ylim(None, regret_ylim)
 ax[0].grid(axis='y', alpha=0.4)
 ax[0].set_title(title_full)
 ax[0].legend()
