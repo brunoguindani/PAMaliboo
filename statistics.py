@@ -28,10 +28,10 @@ num_runs = 5
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'simulated_error100_p10_init5')
+root_output_folder = os.path.join('outputs', 'simulated_errinit1.5_trans100_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 regret_ylim_single = 3000
-regret_ylim_avg = 2250
+regret_ylim_avg = None  # 2250
 if 'SVR' in root_output_folder:
   mape_ylim = 0.2
 elif 'error' in root_output_folder:
@@ -97,9 +97,6 @@ for main_rng in main_rng_seeds:
     time_dist_dic = dict.fromkeys(group_seeds, None)
     ## Time elapsed at end of an execution -> feasibility of the execution
     time_feas_dic = {}
-    ## Elapsed time after computing first configuration via BO (i.e. duration
-    ## of initial points exploration + some acquisition overhead)
-    initial_times_dic = dict.fromkeys(group_seeds, None)
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -191,7 +188,6 @@ for main_rng in main_rng_seeds:
       if 'train_MAPE' in info.columns:
         mape_dic[rng] = info['train_MAPE']
       time_dist_dic[rng] = time_dist
-      initial_times_dic[rng] = info.loc[0, 'optimizer_time']
 
     # We have looped on RNG seeds of this group.
     # Now we combine vectors of metrics into single DataFrames
@@ -199,10 +195,11 @@ for main_rng in main_rng_seeds:
                      if 'train_MAPE' in info.columns else None
     ## In group_time_dist, we take the best (smallest) value of the group at
     ## each time instant
-    group_time_dist = pd.concat(time_dist_dic.values(), axis=1).min(axis=1)
+    time_dist_df = pd.concat(time_dist_dic.values(), axis=1)
     # Stop at the earliest time at which a seed in the group has finished
     end_time = np.min([d.index[-1] for d in time_dist_dic.values()])
-    group_time_dist = group_time_dist.loc[:end_time]
+    group_time_dist = time_dist_df.min(axis=1).loc[:end_time]
+    group_time_dist_worst = time_dist_df.max(axis=1).loc[:end_time]
 
     # Collect scalar metrics for the group
     par_to_results[par]['avg_perc_unfeas'] = \
@@ -224,10 +221,9 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_dist'] = group_time_dist
     par_to_results[par]['time_dist_all'] = time_dist_dic
+    par_to_results[par]['time_dist_worst'] = group_time_dist_worst
     par_to_results[par]['time_feas'] = time_feas_dic
     par_to_results[par]['end_time'] = end_time
-    # Initial exploration times
-    par_to_results[par]['initial_times'] = initial_times_dic
     # Write all group metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
 
@@ -273,9 +269,6 @@ for main_rng in main_rng_seeds:
       facecolor = color if feas else 'none'
       ax[0].scatter(time_approx, times_dists[time_approx], marker='o', s=12,
                     edgecolor=color, facecolors=facecolor, linewidths=0.5)
-    # Draw lines for initial exploration times
-    for t_init in par_to_results[par]['initial_times'].values():
-      ax[0].axvline(t_init, ls='-.', lw=0.5, color=color)
 
     # Second plot: MAPE over iterations (only if available)
     if par_to_results[par]['avg_mape'] is not None:
@@ -319,26 +312,15 @@ for par in parallelism_levels:
   df_dist = pd.concat([rng_to_par_to_results[r][par]['time_dist']
                        for r in main_rng_seeds], axis=1)
   df_dist = df_dist.fillna(method='ffill').mean(axis=1)
+  df_dist_worst = pd.concat([rng_to_par_to_results[r][par]['time_dist_worst']
+                             for r in main_rng_seeds], axis=1)
+  df_dist_worst = df_dist_worst.fillna(method='ffill').mean(axis=1)
   ax[0].plot(df_dist, lw=1.5, label=label)
   color = ax[0].lines[-1].get_color()
-  avg_init_time = np.mean(list(par_to_results[par]['initial_times'].values()))
-  ax[0].axvline(avg_init_time, ls='-.', lw=0.5, color=color)
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
-    df_all_ensembles = pd.concat([rng_to_par_to_results[r][par]['time_dist']
-                                  for r in main_rng_seeds], axis=1) \
-                         .fillna(method='ffill', axis=0)
-    if plot_all_ensembles:
-      label_ensemble = f"{label} (individual seed)"
-      for r in main_rng_seeds:
-        ax[0].plot(rng_to_par_to_results[r][par]['time_dist'], lw=0.25,
-                   label=label_ensemble, color=color)
-        label_ensemble = None
-    else:
-      label_ensemble = f"{label} (ensemble bounds)"
-      ax[0].plot(df_all_ensembles.min(axis=1), lw=0.5, color=color,
-                                                       label=label_ensemble)
-      ax[0].plot(df_all_ensembles.max(axis=1), lw=0.5, color=color)
+    label_ensemble = f"{label} (ensemble maximum)"
+    ax[0].plot(df_dist_worst, lw=0.25, label=label_ensemble, color=color)
   elif par == indep_seq_runs:
     df_par_async = df_dist.copy()
 
@@ -351,19 +333,19 @@ for par in parallelism_levels:
   except:
     pass
 
-# Make rankings plot
-if len(parallelism_levels) > 1:
-  df_par_async = df_par_async.loc[df_all_ensembles.index]
-  # This counts how many ensembles beat the PA model at time t, for each t.
-  # By adding 1, one obtains the ranking of the PA model wrt the ensembles
-  comp = lambda x : x < df_par_async
-  df_ranking = 1 + df_all_ensembles.apply(comp, axis=0).sum(axis=1)
-  ax[2].plot(df_ranking)
-  ax[2].set_title("Ranking of centralized model vs ensembles")
-  ax[2].set_xlabel("time [s]")
-  ax[2].set_ylabel("ranking")
-  ax[2].set_yticks(np.arange(1, num_runs+1.01, 1))
-  ax[2].grid(axis='y', alpha=0.4)
+# # Make rankings plot  # TODO
+# if len(parallelism_levels) > 1:
+#   df_par_async = df_par_async.loc[df_all_ensembles.index]
+#   # This counts how many ensembles beat the PA model at time t, for each t.
+#   # By adding 1, one obtains the ranking of the PA model wrt the ensembles
+#   comp = lambda x : x < df_par_async
+#   df_ranking = 1 + df_all_ensembles.apply(comp, axis=0).sum(axis=1)
+#   ax[2].plot(df_ranking)
+#   ax[2].set_title("Ranking of centralized model vs ensembles")
+#   ax[2].set_xlabel("time [s]")
+#   ax[2].set_ylabel("ranking")
+#   ax[2].set_yticks(np.arange(1, num_runs+1.01, 1))
+#   ax[2].grid(axis='y', alpha=0.4)
 
 # Other plot goodies
 ## For first plot
