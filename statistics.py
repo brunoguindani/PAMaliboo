@@ -30,7 +30,8 @@ opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs', 'simulated_error100_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
-regret_ylim = 2500
+regret_ylim_single = 3000
+regret_ylim_avg = 2250
 if 'SVR' in root_output_folder:
   mape_ylim = 0.2
 elif 'error' in root_output_folder:
@@ -288,6 +289,7 @@ for main_rng in main_rng_seeds:
   title_full = f"{title_part1} of {title_part2}"
   ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
+  ax[0].set_ylim(None, regret_ylim_single)
   ax[0].set_title(title_full)
   ax[0].legend()
   handles, labels = ax[0].get_legend_handles_labels()
@@ -367,7 +369,7 @@ if len(parallelism_levels) > 1:
 ## For first plot
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
 ax[0].set_xlabel("time [s]")
-ax[0].set_ylim(None, regret_ylim)
+ax[0].set_ylim(None, regret_ylim_avg)
 ax[0].grid(axis='y', alpha=0.4)
 ax[0].set_title(title_full)
 ax[0].legend()
