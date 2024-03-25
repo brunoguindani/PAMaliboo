@@ -245,11 +245,11 @@ class ExpectedImprovementMachineLearning(ExpectedImprovement):
 
 
 class ExpectedImprovementMLWithError(ExpectedImprovementMachineLearning):
-  def __init__(self, error_max_iter, *args, **kwargs):
+  def __init__(self, error_init: float, error_maxiter: int, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.num_iter = 0
-    self.error_max_iter = error_max_iter
-    self.error_init_val = 1.5
+    self.error_init = error_init
+    self.error_maxiter = error_maxiter
 
   def update_state(self, gp: GPR, history: FileDataFrame, num_iter: int) \
                    -> None:
@@ -257,10 +257,10 @@ class ExpectedImprovementMLWithError(ExpectedImprovementMachineLearning):
     self.num_iter = num_iter
 
   def error_factor(self):
-    if self.num_iter >= self.error_max_iter:
+    if self.num_iter >= self.error_maxiter:
       return 1
-    discount = (self.error_init_val-1) * self.num_iter / self.error_max_iter
-    return self.error_init_val - discount
+    discount = (self.error_init-1) * self.num_iter / self.error_maxiter
+    return self.error_init - discount
 
 
   def evaluate(self, x: np.ndarray) -> float:
