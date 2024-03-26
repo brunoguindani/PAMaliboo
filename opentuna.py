@@ -9,85 +9,28 @@ import pandas as pd
 import time
 
 
-# Function to find approximated configuration in the given dataset
-def find_approximation_idx(dataset, x, num_features):
-  min_distance = None
-  approximations = []
-  approximations_idxs = []
-
-  # dataset_configs only contains configurations, one per row
-  dataset_configs = dataset.iloc[:, 0:num_features].values
-  # Loop over dataset rows
-  for idx in range(dataset_configs.shape[0]):
-    # Compute distance between row and current best value
-    row = dataset_configs[idx, 0:num_features]
-    dist = np.linalg.norm(x - row, 2)
-    if min_distance is None or dist <= min_distance:
-      if dist == min_distance:
-        # One of the tied best approximations
-        approximations.append(row)
-        approximations_idxs.append(dataset.index[idx])
-      else:
-        # The one new best approximation
-        min_distance = dist
-        approximations = [row]
-        approximations_idxs = [dataset.index[idx]]
-
-  # If multiple, choose randomly
-  internal_idx = np.random.randint(0, len(approximations_idxs))
-  x_idx = approximations_idxs[internal_idx]
-  # x_approx = approximations[internal_idx]
-  return x_idx
-
-
-# Base class for constrained optimization
-class ConstrainedTuner(MeasurementInterface):
-  is_constrained = True
-  file = ''
-  num_features = 0
-  minimizing_column = ''
-  constrained_column = ''
-  constraints = []
-  iterations = 0 + 0
+class LigenTuner(MeasurementInterface):
   """
   if accuracy >= target:
     minimize time
   else:
     maximize accuracy
   """
+  file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
+  num_features = 8
+  minimizing_col = '-RMSD^3*TIME'
+  constrained_col = 'RMSD_0.75'
+  exec_time_col = 'TIME_TOTAL'
+  constraints = [2100]  # 2.1 multiplied by 1000 since OT only handles integers
+  iterations = 10 + 1000
+
   def __init__(self, args):
     inp_man = FixedInputManager()
     objective = ThresholdAccuracyMinimizeTime(threshold_lower_bound)
+    self.df = pd.read_csv(self.file)
+    self.domain = self.df.iloc[:, 0:self.num_features].to_numpy()
+    self.the_clock = 0
     super().__init__(args, input_manager=inp_man, objective=objective)
-
-  def manipulator(self):
-    """Define search space"""
-    raise NotImplementedError()
-
-  def run(self, desired_result, input, limit):
-    """Run given configuration and return performance"""
-    dataset = pd.read_csv(self.file)
-    x = np.array([d for d in desired_result.configuration.data.values()])
-    x_idx = find_approximation_idx(dataset, x, self.num_features)
-    row_approx = dataset.loc[x_idx]
-    minimizing_val = -int(row_approx[self.minimizing_column])
-    constrained_val = int(row_approx[self.constrained_column])
-    x_strg = ','.join(row_approx.astype(str))
-    time.sleep(row_approx['TIME_TOTAL']/10)
-    with open(output_file, 'a') as f:
-      f.write(f"{x_idx},{x_strg}\n")
-    with open(info_file, 'a') as f:
-      f.write(f"{x_idx},{time.time()-time_start}\n")
-    return Result(time=minimizing_val, accuracy=-constrained_val)
-
-
-class LigenTuner(ConstrainedTuner):
-  file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
-  num_features = 8
-  minimizing_column = '-RMSD^3*TIME'
-  constrained_column = 'RMSD_0.75'
-  constraints = [2.1]
-  iterations = 10 + 1000
 
   def manipulator(self):
     """Define search space"""
@@ -106,39 +49,61 @@ class LigenTuner(ConstrainedTuner):
                 [1048576, 2097152, 5242880, 10485760, 20971520, 52428800]))
     return manipulator
 
+  def run(self, desired_result, input, limit):
+    """Run given configuration and return performance"""
+    time_start = time.time()
+    # Find best approximation
+    x = np.array([d for d in desired_result.configuration.data.values()])
+    distances = np.linalg.norm(self.domain - x, axis=1)
+    idx = np.argmin(distances)
+    # Build string from dataset row
+    x_approx = self.domain[idx,:]
+    row_approx = self.df.loc[idx]
+    x_all = np.hstack((idx, x_approx,
+                       row_approx[[self.minimizing_col,
+                                   self.constrained_col, self.exec_time_col]]))
+    x_strg = ','.join([str(_) for _ in x_all])
+    # Write configuration to the history
+    with open(history_file, 'a') as f:
+      f.write(x_strg + '\n')
+    # Avdance clock and write other stuff to the information file
+    processing_time = time.time() - time_start
+    evaluation_time = row_approx[self.exec_time_col]
+    self.the_clock += processing_time + evaluation_time
+    with open(info_file, 'a') as f:
+      f.write(f'{idx},{self.the_clock},{processing_time}\n')
+    # Compute integer values for optimizer
+    minimizing_val = -int(row_approx[self.minimizing_col])
+    constrained_val = int(1000*row_approx[self.constrained_col])
+    return Result(time=minimizing_val, accuracy=-constrained_val)
+
 
 if __name__ == '__main__':
-  # Choose experiment class
-  experiment_tuner = LigenTuner
-
   # Command line arguments
   argparser = opentuner.default_argparser()
   namespace = argparser.parse_args()
   namespace.parallelism = 10
-  namespace.test_limit = experiment_tuner.iterations
+  namespace.test_limit = LigenTuner.iterations
 
   # Initialize relevant variables
-  #experiment_name = experiment_tuner.file.replace('.csv', '')
-  list_feat = ['index'] \
-              + [f'x{_}' for _ in range(experiment_tuner.num_features)]
-  list_feat.extend(['RMSD_0.75', '-RMSD^3*TIME'] \
-                   if experiment_tuner.is_constrained else ['target'])
-  output_folder = 'outputs_opentuner'
-  os.makedirs(output_folder)
+  history_header = ('index,ALIGN_SPLIT,OPTIMIZE_SPLIT,OPTIMIZE_REPS,'
+                    'CUDA_THREADS,N_RESTART,CLIPPING,SIM_THRESH,BUFFER_SIZE,'
+                    'target,RMSD_0.75,evaluation_time')
+  info_header = 'index,optimizer_time,processing_time'
+  output_folder = os.path.join('outputs', 'opentuner_simulated')
 
   # Loop over RNG seeds and constraint thresholds
   root_rng_seed = 20230524
   for rng in range(root_rng_seed, root_rng_seed+10):
-    threshold_lower_bound = experiment_tuner.constraints[0]
+    threshold_lower_bound = LigenTuner.constraints[0]
     # Initialize results file
-    output_rng_folder = os.path.join(output_folder, f'rng{rng}')
+    output_rng_folder = os.path.join(output_folder, f'rng_{rng}')
     os.makedirs(output_rng_folder)
-    output_file = os.path.join(output_rng_folder, 'history.csv')
+    history_file = os.path.join(output_rng_folder, 'history.csv')
     info_file = os.path.join(output_rng_folder, 'info.csv')
-    with open(output_file, 'w') as f:
-      f.write(','.join(list_feat) + '\n')
+    with open(history_file, 'w') as f:
+      f.write(history_header + '\n')
     with open(info_file, 'w') as f:
-      f.write('index,optimizer_time\n')
+      f.write(info_header + '\n')
     # Run optimizer
-    time_start = time.time()
-    experiment_tuner.main(namespace)
+    LigenTuner.main(namespace)
