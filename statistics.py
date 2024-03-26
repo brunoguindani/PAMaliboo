@@ -28,7 +28,8 @@ num_runs = 5
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
-root_output_folder = os.path.join('outputs', 'simulated_errinit1.5_trans100_p10_init5')
+root_output_folder = os.path.join('outputs',
+                                  'simulated_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 regret_ylim_single = 3000
 regret_ylim_avg = None  # 2250
@@ -54,9 +55,10 @@ df_feas = df_all[ df_all['feas'] == True ]
 best = df_feas.loc[ df_feas[target_col] == df_feas[target_col].min() ].iloc[0]
 ground = 0 if use_relative else best[target_col]
 
-# Initialize main RNG seeds
+# Initialize main RNG seeds and other containers
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 rng_to_par_to_results = {m: {} for m in main_rng_seeds}
+par_async_rankings = dict.fromkeys(main_rng_seeds, None)
 
 for main_rng in main_rng_seeds:
   # Initialize dict of global results for this main RNG seed
@@ -169,11 +171,6 @@ for main_rng in main_rng_seeds:
       for t, feas_t in zip(discrete_times, feas):
         time_feas_dic[t] = feas_t
 
-      # # Shrink optimizer time based on parallelism level
-      # if isinstance(par, int):
-      #   time_dist.index = time_dist.index / par
-      #   time_feas_dic = {t/par: f for t, f in time_feas_dic.items()}
-
       # Execution times of target functions (recall: f(x) = RMSD^3(x) * T(x))
       exec_times = hist['target'] / hist['RMSD_0.75'] ** 3
       exec_times_unfeas_dic[rng] = exec_times[~feas].sum()
@@ -229,24 +226,15 @@ for main_rng in main_rng_seeds:
 
   # We have looped on all parallelism levels.
   # Now, for the current main RNG seed, we print and plot stuff
-  print(f"For main RNG seed {main_rng}:")
-  fig, ax = plt.subplots(2, 1, figsize=(8, 8))
+  fig, ax = plt.subplots(3, 1, figsize=(8, 12))
   for par in parallelism_levels:
+    label = f"parallelism {par}"
     par_n_unf = par_to_results[par]['avg_perc_unfeas']
     par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
     exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
     exec_times_total = par_to_results[par]['exec_times_total']
-    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']
+    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']    
 
-    label = f"parallelism {par}"
-    print(f"par = {par}: avg_perc_unfeas = {round(par_n_unf, 3)}, "
-          f"avg_n_unfeas_noinit = {par_n_unf_noinit}, "
-          f"avg_dist = {round(par_to_results[par]['avg_dist'], 3)}, "
-          f"exec_time_over_nfeas = {exec_time_over_nfeas}, "
-          f"exec_times_unfeas = "
-          f"{round(exec_times_unfeas / exec_times_total, 3)}")
-
-    # Comment from here for not creating the plots
     # First plot: distance and feasibility of executions over time
     times_dists = par_to_results[par]['time_dist']
     ax[0].plot(times_dists, lw=1,
@@ -273,6 +261,26 @@ for main_rng in main_rng_seeds:
     # Second plot: MAPE over iterations (only if available)
     if par_to_results[par]['avg_mape'] is not None:
       ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
+
+    # Third plot: rankings
+    # This counts how many ensemble agents beat the PA model at time t, for
+    # each t. By adding 1 we obtain the ranking of the PA model wrt the agents
+    if par == indep_seq_runs:
+      end_time = min(par_to_results[1]['end_time'],
+                     par_to_results[indep_seq_runs]['end_time'])
+      df_p1 = pd.concat(par_to_results[1]['time_dist_all'].values(), axis=1) \
+                .loc[:end_time]
+      df_pisr = par_to_results[indep_seq_runs]['time_dist_all'][main_rng] \
+                .loc[:end_time]
+      comp = lambda x : x < df_pisr
+      df_ranking = 1 + df_p1.apply(comp, axis=0).sum(axis=1)
+      par_async_rankings[main_rng] = df_ranking
+      ax[2].plot(df_ranking)
+      ax[2].set_title("Ranking of centralized model vs ensembles")
+      ax[2].set_xlabel("time [s]")
+      ax[2].set_ylabel("ranking")
+      ax[2].grid(axis='y', alpha=0.4)
+
   # Other plot goodies
   ## For first plot
   ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
@@ -297,8 +305,7 @@ for main_rng in main_rng_seeds:
   ax[1].legend()
   fig.subplots_adjust(hspace=0.25)
   # Save plot to file
-  plot_file = os.path.join(root_output_folder,
-                           f'par_vs_{indep_seq_runs}_{main_rng}.png')
+  plot_file = os.path.join(root_output_folder, f'{main_rng}.png')
   fig.savefig(plot_file, bbox_inches='tight', dpi=300)
   print()
 
@@ -333,19 +340,13 @@ for par in parallelism_levels:
   except:
     pass
 
-# # Make rankings plot  # TODO
-# if len(parallelism_levels) > 1:
-#   df_par_async = df_par_async.loc[df_all_ensembles.index]
-#   # This counts how many ensembles beat the PA model at time t, for each t.
-#   # By adding 1, one obtains the ranking of the PA model wrt the ensembles
-#   comp = lambda x : x < df_par_async
-#   df_ranking = 1 + df_all_ensembles.apply(comp, axis=0).sum(axis=1)
-#   ax[2].plot(df_ranking)
-#   ax[2].set_title("Ranking of centralized model vs ensembles")
-#   ax[2].set_xlabel("time [s]")
-#   ax[2].set_ylabel("ranking")
-#   ax[2].set_yticks(np.arange(1, num_runs+1.01, 1))
-#   ax[2].grid(axis='y', alpha=0.4)
+# Make rankings plot
+avg_ranking = pd.concat(par_async_rankings.values(), axis=1).mean(axis=1)
+ax[2].plot(avg_ranking)
+ax[2].set_title("Ranking of centralized model vs ensembles")
+ax[2].set_xlabel("time [s]")
+ax[2].set_ylabel("ranking")
+ax[2].grid(axis='y', alpha=0.4)
 
 # Other plot goodies
 ## For first plot
@@ -367,13 +368,10 @@ ax[1].set_title("Training MAPE")
 ax[1].legend()
 fig.subplots_adjust(hspace=0.25)
 # Save global plot
-try:
-  suffix = os.path.basename(root_output_folder).split('_init')[-1].zfill(3)
-except:
-  suffix = 'opentuner' if 'opentuner' in output_folder else 'results'
-plot_file = os.path.join(root_output_folder, f'all_{suffix}.png')
+suffix = os.path.basename(root_output_folder)
+plot_file = os.path.join(root_output_folder, f'00_{suffix}.png')
 fig.savefig(plot_file, bbox_inches='tight', dpi=300)
-# Comment until here for not creating the plots
+exit()
 
 # Compute scalar global metrics, print them and save them to file
 strg = "Global metrics:\n"
