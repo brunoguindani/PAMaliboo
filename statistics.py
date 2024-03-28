@@ -29,10 +29,10 @@ root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs',
-                                  'simulated_p10_init5')
+                                  'simulated_p10_init30')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
-regret_ylim_single = 3000
-regret_ylim_avg = None  # 2250
+regret_ylim_single = 2500
+regret_ylim_avg = 2500
 if 'SVR' in root_output_folder:
   mape_ylim = 0.2
 elif 'error' in root_output_folder:
@@ -71,7 +71,7 @@ for main_rng in main_rng_seeds:
     if par == 1 and indep_seq_runs > 1:
       other_seeds = [10*main_rng+i for i in range(indep_seq_runs-1)]
       group_seeds.extend(other_seeds)
-    print(f">>> par = {par}, main_rng = {main_rng}, -> {group_seeds}")
+    print(f">>> par = {par}, main_rng = {main_rng} -> {group_seeds}")
 
     # Initialize results dictionaries for this group: each entry links an RNG
     # seed in the group (i.e. an individual run) to a certain measurement.
