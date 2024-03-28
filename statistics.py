@@ -25,7 +25,7 @@ root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs',
-                                  'simulated_p10_init5')
+                                  'opentuner_simulated')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 regret_ylim_single = 2500
 regret_ylim_avg = 2500
@@ -102,7 +102,7 @@ for main_rng in main_rng_seeds:
       # Also get the recorded additional information
       info = pd.read_csv(os.path.join(output_folder, 'info.csv'),
                          index_col='index')
-      if 'opentuner' in output_folder:  # TODO meh...
+      if 'opentuner' in output_folder:
         hist.reset_index(drop=True, inplace=True)
         info.reset_index(drop=True, inplace=True)
 
@@ -232,7 +232,7 @@ for main_rng in main_rng_seeds:
     # Rankings
     # This counts how many ensemble agents beat the PA model at time t, for
     # each t. By adding 1 we obtain the ranking of the PA model wrt the agents
-    if par == indep_seq_runs:
+    if par == indep_seq_runs and 'opentuner' not in output_folder:
       end_time = min(par_to_results[1]['end_time'],
                      par_to_results[indep_seq_runs]['end_time'])
       df_p1 = pd.concat(par_to_results[1]['time_regr_all'].values(), axis=1) \
@@ -310,12 +310,13 @@ for par in parallelism_levels:
     pass
 
 # Make rankings plot
-avg_ranking = pd.concat(par_async_rankings.values(), axis=1).mean(axis=1)
-ax[2].plot(avg_ranking)
-ax[2].set_title("Ranking of centralized model vs ensembles")
-ax[2].set_xlabel("time [s]")
-ax[2].set_ylabel("ranking")
-ax[2].grid(axis='y', alpha=0.4)
+if 'opentuner' not in output_folder:
+  avg_ranking = pd.concat(par_async_rankings.values(), axis=1).mean(axis=1)
+  ax[2].plot(avg_ranking)
+  ax[2].set_title("Ranking of centralized model vs ensembles")
+  ax[2].set_xlabel("time [s]")
+  ax[2].set_ylabel("ranking")
+  ax[2].grid(axis='y', alpha=0.4)
 
 # Other plot goodies
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
