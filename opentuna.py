@@ -22,7 +22,7 @@ class LigenTuner(MeasurementInterface):
   constrained_col = 'RMSD_0.75'
   exec_time_col = 'TIME_TOTAL'
   constraints = [2100]  # 2.1 multiplied by 1000 since OT only handles integers
-  iterations = 10 + 1000
+  iterations = 5 + 1000
 
   def __init__(self, args):
     inp_man = FixedInputManager()
@@ -94,10 +94,10 @@ if __name__ == '__main__':
 
   # Loop over RNG seeds and constraint thresholds
   root_rng_seed = 20230524
-  for rng in range(root_rng_seed, root_rng_seed+10):
+  for rng in range(root_rng_seed, root_rng_seed+5):
     threshold_lower_bound = LigenTuner.constraints[0]
     # Initialize results file
-    output_rng_folder = os.path.join(output_folder, f'rng_{rng}')
+    output_rng_folder = os.path.join(output_folder, 'par_10', f'rng_{rng}')
     os.makedirs(output_rng_folder)
     history_file = os.path.join(output_rng_folder, 'history.csv')
     info_file = os.path.join(output_rng_folder, 'info.csv')
@@ -107,3 +107,4 @@ if __name__ == '__main__':
       f.write(info_header + '\n')
     # Run optimizer
     LigenTuner.main(namespace)
+    LigenTuner.the_clock = 0
