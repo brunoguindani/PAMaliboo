@@ -11,7 +11,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -19,9 +18,6 @@ import pandas as pd
 
 
 # Campaign parameters
-use_relative = False
-use_incumbents = True
-plot_all_ensembles = False
 parallelism_levels = [10, 1]
 indep_seq_runs = 10
 num_runs = 5
@@ -29,16 +25,10 @@ root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs',
-                                  'simulated_p10_init30')
+                                  'simulated_p10_init5')
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 regret_ylim_single = 2500
 regret_ylim_avg = 2500
-if 'SVR' in root_output_folder:
-  mape_ylim = 0.2
-elif 'error' in root_output_folder:
-  mape_ylim = 0.5
-else:
-  mape_ylim = 0.1
 
 # Find real feasible optimum
 df_all = pd.read_csv(df_all_file)
@@ -53,7 +43,7 @@ for key, (lb, ub) in opt_constraints.items():
 df_feas = df_all[ df_all['feas'] == True ]
 ## Find point with minimum target value among those points
 best = df_feas.loc[ df_feas[target_col] == df_feas[target_col].min() ].iloc[0]
-ground = 0 if use_relative else best[target_col]
+ground = best[target_col]
 
 # Initialize main RNG seeds and other containers
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -74,9 +64,7 @@ for main_rng in main_rng_seeds:
     print(f">>> par = {par}, main_rng = {main_rng} -> {group_seeds}")
 
     # Initialize results dictionaries for this group: each entry links an RNG
-    # seed in the group (i.e. an individual run) to a certain measurement.
-    # By 'distance' we mean either relative regret or raw target values,
-    # according to the value of use_relative
+    # seed in the group (i.e. an individual run) to a certain measurement
     # SCALAR METRICS
     ## Percentage of unfeasible executions including initial points
     perc_unfeas_dic = dict.fromkeys(group_seeds, None)
@@ -84,19 +72,19 @@ for main_rng in main_rng_seeds:
     n_feas_dic = dict.fromkeys(group_seeds, None)
     ## Number of unfeasible executions excluding initial points
     n_unfeas_noinit_dic = dict.fromkeys(group_seeds, None)
-    ## Average distance on feasible points over all iterations
-    avg_dist_dic = dict.fromkeys(group_seeds, None)
-    ## Average distance on all points (both feasible and unfeasible) over all
+    ## Average regret on feasible points over all iterations
+    avg_regr_dic = dict.fromkeys(group_seeds, None)
+    ## Average regret on all points (both feasible and unfeasible) over all
     ## iterations
-    avg_dist_fea_unf_dic = dict.fromkeys(group_seeds, None)
+    avg_regr_fea_unf_dic = dict.fromkeys(group_seeds, None)
     ## Sums of execution times of target functions (unfeasible and total)
     exec_times_unfeas_dic = dict.fromkeys(group_seeds, None)
     exec_times_total_dic = dict.fromkeys(group_seeds, None)
     # VECTORS OF METRICS
     ## MAPE on all iterations
     mape_dic = dict.fromkeys(group_seeds, None)
-    ## Distance over time
-    time_dist_dic = dict.fromkeys(group_seeds, None)
+    ## Regret over time
+    time_regr_dic = dict.fromkeys(group_seeds, None)
     ## Time elapsed at end of an execution -> feasibility of the execution
     time_feas_dic = {}
 
@@ -121,51 +109,29 @@ for main_rng in main_rng_seeds:
       for key, (lb, ub) in opt_constraints.items():
         feas = feas & (lb <= hist[key]) & (hist[key] <= ub)
 
-      # Collect *feasible* points at each iterations, either:
+      # Collect *feasible* incumbents at each iteration
       points = []
-      if use_incumbents:
-        # ...the incumbents at each iteration
-        curr = np.nan
-        for i in range(hist.shape[0]):
-          if feas.iloc[i] and (curr is np.nan
-                               or hist['target'].iloc[i] < curr):
-            curr = hist['target'].iloc[i]
-          points.append(curr)
-      else:
-        # ...or the points evaluated at each iteration
-        for i in range(hist.shape[0]):
-          if feas.iloc[i]:
-            points.append(hist['target'].iloc[i])
-          else:
-            points.append(np.nan)
-      points = pd.Series(points, index=hist.index)
+      curr = np.nan
+      for i in range(hist.shape[0]):
+        if feas.iloc[i] and (curr is np.nan
+                             or hist['target'].iloc[i] < curr):
+          curr = hist['target'].iloc[i]
+        points.append(curr)
+      regrets = pd.Series(points, index=hist.index)
 
-      # Compute distance from ground truth, either:
-      if use_relative:
-        # ...simple relative regret wrt the true minimum
-        dists = (points - best[target_col]) / best[target_col]
-      else:
-        # ...or target value (which we are minimizing)
-        dists = points
-
-      # Distance vector considering both feasible & unfeasible points, either:
-      if use_relative:
-        # ...simple relative regret wrt the true minimum
-        dist_fea_unf = (hist['target'] - best[target_col]) / best[target_col]
-      else:
-        # ...or target value (which we are minimizing)
-        dist_fea_unf = hist['target']
+      # Regret vector considering both feasible & unfeasible points
+      regr_fea_unf = hist['target']
 
       # Get optimizer times for each evaluation
       discrete_times = info['optimizer_time']
       # Initialize vector of time instants
       delta = 1.0  # granularity
       time_grid = np.arange(0, discrete_times.iloc[-1]+delta, delta)
-      time_dist = pd.Series(index=time_grid)
-      # Collect current distance at each time instant in the grid
+      time_regr = pd.Series(index=time_grid)
+      # Collect current regret at each time instant in the grid
       for i in range(hist.index.max()):
-        time_dist[discrete_times[i]:discrete_times[i+1]] = dists[i]
-      time_dist[discrete_times.iloc[-1]:] = dists.iloc[-1]
+        time_regr[discrete_times[i]:discrete_times[i+1]] = regrets[i]
+      time_regr[discrete_times.iloc[-1]:] = regrets.iloc[-1]
 
       # Collect time -> feasibility
       for t, feas_t in zip(discrete_times, feas):
@@ -180,32 +146,32 @@ for main_rng in main_rng_seeds:
       perc_unfeas_dic[rng] = (~feas).sum() / hist.shape[0]
       n_feas_dic[rng] = feas.sum()
       n_unfeas_noinit_dic[rng] = ( (~feas.loc[feas.index != -1]).sum() )
-      avg_dist_dic[rng] = dists.mean()
-      avg_dist_fea_unf_dic[rng] = dist_fea_unf.cummin().mean()
+      avg_regr_dic[rng] = regrets.mean()
+      avg_regr_fea_unf_dic[rng] = regr_fea_unf.cummin().mean()
       if 'train_MAPE' in info.columns:
         mape_dic[rng] = info['train_MAPE']
-      time_dist_dic[rng] = time_dist
+      time_regr_dic[rng] = time_regr
 
     # We have looped on RNG seeds of this group.
     # Now we combine vectors of metrics into single DataFrames
     group_avg_mape = pd.concat(mape_dic.values(), axis=1).mean(axis=1) \
                      if 'train_MAPE' in info.columns else None
-    ## In group_time_dist, we take the best (smallest) value of the group at
+    ## In group_time_regr, we take the best (smallest) value of the group at
     ## each time instant
-    time_dist_df = pd.concat(time_dist_dic.values(), axis=1)
+    time_regr_df = pd.concat(time_regr_dic.values(), axis=1)
     # Stop at the earliest time at which a seed in the group has finished
-    end_time = np.min([d.index[-1] for d in time_dist_dic.values()])
-    group_time_dist = time_dist_df.min(axis=1).loc[:end_time]
-    group_time_dist_worst = time_dist_df.max(axis=1).loc[:end_time]
+    end_time = np.min([d.index[-1] for d in time_regr_dic.values()])
+    group_time_regr = time_regr_df.min(axis=1).loc[:end_time]
+    group_time_regr_worst = time_regr_df.max(axis=1).loc[:end_time]
 
     # Collect scalar metrics for the group
     par_to_results[par]['avg_perc_unfeas'] = \
                                       np.mean(list(perc_unfeas_dic.values()))
     par_to_results[par]['avg_n_unfeas_noinit'] = \
                        np.mean(list(n_unfeas_noinit_dic.values()))
-    par_to_results[par]['avg_dist'] = np.mean(list(avg_dist_dic.values()))
-    par_to_results[par]['avg_dist_fea_unf'] = \
-                       np.mean(list(avg_dist_fea_unf_dic.values()))
+    par_to_results[par]['avg_regr'] = np.mean(list(avg_regr_dic.values()))
+    par_to_results[par]['avg_regr_fea_unf'] = \
+                       np.mean(list(avg_regr_fea_unf_dic.values()))
     par_to_results[par]['num_indep_runs'] = len(group_seeds)
     par_to_results[par]['indep_runs_iters'] = hist.shape[0]
     exec_times_unfeas = sum(exec_times_unfeas_dic.values())
@@ -216,9 +182,9 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['exec_time_over_nfeas'] = exec_times_total / n_feas
     # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
-    par_to_results[par]['time_dist'] = group_time_dist
-    par_to_results[par]['time_dist_all'] = time_dist_dic
-    par_to_results[par]['time_dist_worst'] = group_time_dist_worst
+    par_to_results[par]['time_regr'] = group_time_regr
+    par_to_results[par]['time_regr_all'] = time_regr_dic
+    par_to_results[par]['time_regr_worst'] = group_time_regr_worst
     par_to_results[par]['time_feas'] = time_feas_dic
     par_to_results[par]['end_time'] = end_time
     # Write all group metrics into the global results dict
@@ -235,27 +201,27 @@ for main_rng in main_rng_seeds:
     exec_times_total = par_to_results[par]['exec_times_total']
     exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']    
 
-    # First plot: distance and feasibility of executions over time
-    times_dists = par_to_results[par]['time_dist']
-    ax[0].plot(times_dists, lw=1,
+    # First plot: regret and feasibility of executions over time
+    times_regrs = par_to_results[par]['time_regr']
+    ax[0].plot(times_regrs, lw=1,
                             label=label+f" (unfeasible: {par_n_unf:.3f})")
     color = ax[0].lines[-1].get_color()
     # Plot individual agents in the case of parallelism 1
     if par == 1:
-      for t_d in par_to_results[par]['time_dist_all'].values():
+      for t_d in par_to_results[par]['time_regr_all'].values():
         e_t = par_to_results[par]['end_time']
         ax[0].plot(t_d.loc[:e_t], lw=0.5, color=color)
     # Loop on iterations (their optimizer time and feasibility)
     for t, feas in par_to_results[par]['time_feas'].items():
       # Compute approximation of optimizer time on the time grid
-      if t <= times_dists.index[-1]:
-        time_approx = times_dists.index[times_dists.index > t][0]
+      if t <= times_regrs.index[-1]:
+        time_approx = times_regrs.index[times_regrs.index > t][0]
       else:
         # if beyond last grid element, approximate to last grid element
-        time_approx = times_dists.index[-1]
+        time_approx = times_regrs.index[-1]
       # Plot iteration differently according to its feasibility
       facecolor = color if feas else 'none'
-      ax[0].scatter(time_approx, times_dists[time_approx], marker='o', s=12,
+      ax[0].scatter(time_approx, times_regrs[time_approx], marker='o', s=12,
                     edgecolor=color, facecolors=facecolor, linewidths=0.5)
 
     # Second plot: MAPE over iterations (only if available)
@@ -268,9 +234,9 @@ for main_rng in main_rng_seeds:
     if par == indep_seq_runs:
       end_time = min(par_to_results[1]['end_time'],
                      par_to_results[indep_seq_runs]['end_time'])
-      df_p1 = pd.concat(par_to_results[1]['time_dist_all'].values(), axis=1) \
+      df_p1 = pd.concat(par_to_results[1]['time_regr_all'].values(), axis=1) \
                 .loc[:end_time]
-      df_pisr = par_to_results[indep_seq_runs]['time_dist_all'][main_rng] \
+      df_pisr = par_to_results[indep_seq_runs]['time_regr_all'][main_rng] \
                 .loc[:end_time]
       comp = lambda x : x < df_pisr
       df_ranking = 1 + df_p1.apply(comp, axis=0).sum(axis=1)
@@ -285,21 +251,14 @@ for main_rng in main_rng_seeds:
   ## For first plot
   ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                         zorder=-2)
-  title_part1 = "Relative regret" if use_relative else "Target values"
-  title_part2 = "incumbents" if use_incumbents else "points"
-  title_full = f"{title_part1} of {title_part2}"
+  title_full = "Target values of incumbents"
   ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_ylim(None, regret_ylim_single)
   ax[0].set_title(title_full)
   ax[0].legend()
-  handles, labels = ax[0].get_legend_handles_labels()
-  handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
-  labels.append("start of BO")
-  ax[0].legend(handles=handles, labels=labels)
   # For second plot
   ax[1].set_xlabel("iterations")
-  ax[1].set_ylim(-0.01, mape_ylim)
   ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
   ax[1].legend()
@@ -315,21 +274,21 @@ for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
   label = f"parallelism {par}"
-  # First plot: average distance over time
-  df_dist = pd.concat([rng_to_par_to_results[r][par]['time_dist']
+  # First plot: average regret over time
+  df_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
                        for r in main_rng_seeds], axis=1)
-  df_dist = df_dist.fillna(method='ffill').mean(axis=1)
-  df_dist_worst = pd.concat([rng_to_par_to_results[r][par]['time_dist_worst']
+  df_regr = df_regr.fillna(method='ffill').mean(axis=1)
+  df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
                              for r in main_rng_seeds], axis=1)
-  df_dist_worst = df_dist_worst.fillna(method='ffill').mean(axis=1)
-  ax[0].plot(df_dist, lw=1.5, label=label)
+  df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
+  ax[0].plot(df_regr, lw=1.5, label=label)
   color = ax[0].lines[-1].get_color()
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
-    label_ensemble = f"{label} (ensemble maximum)"
-    ax[0].plot(df_dist_worst, lw=0.25, label=label_ensemble, color=color)
+    label_ensemble = f"{label} (ensemble max.)"
+    ax[0].plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
   elif par == indep_seq_runs:
-    df_par_async = df_dist.copy()
+    df_par_async = df_regr.copy()
 
   # Second plot: MAPE over iterations (only if available)
   try:
@@ -356,13 +315,8 @@ ax[0].set_ylim(None, regret_ylim_avg)
 ax[0].grid(axis='y', alpha=0.4)
 ax[0].set_title(title_full)
 ax[0].legend()
-handles, labels = ax[0].get_legend_handles_labels()
-handles.append(Line2D([0], [0], ls='-.', lw=0.5, color='gray'))
-labels.append("start of BO")
-ax[0].legend(handles=handles, labels=labels)
 ## For second plot
 ax[1].set_xlabel("iterations")
-ax[1].set_ylim(-0.01, mape_ylim)
 ax[1].grid(axis='y', alpha=0.4)
 ax[1].set_title("Training MAPE")
 ax[1].legend()
@@ -380,9 +334,9 @@ for par in parallelism_levels:
                   for r in main_rng_seeds ]
   nums_unfeas_noinit = [ rng_to_par_to_results[r][par]['avg_n_unfeas_noinit']
                   for r in main_rng_seeds ]
-  avg_dists = [ rng_to_par_to_results[r][par]['avg_dist']
+  avg_regrs = [ rng_to_par_to_results[r][par]['avg_regr']
                 for r in main_rng_seeds ]
-  avg_dists_fea_unf = [ rng_to_par_to_results[r][par]['avg_dist_fea_unf']
+  avg_regrs_fea_unf = [ rng_to_par_to_results[r][par]['avg_regr_fea_unf']
                         for r in main_rng_seeds ]
   exec_times_unfeas = [ rng_to_par_to_results[r][par]['exec_times_unfeas']
                         for r in main_rng_seeds ]
@@ -393,8 +347,8 @@ for par in parallelism_levels:
                           for r in main_rng_seeds ]
   strg += (f"par = {par}: avg_perc_unfeas = {np.mean(nums_unfeas)}, "
            f"avg_n_unfeas_noinit = {np.mean(nums_unfeas_noinit)}, "
-           f"avg_dist = {np.mean(avg_dists)}, "
-           f"avg_dist_fea_unf = {np.mean(avg_dists_fea_unf)}, "
+           f"avg_regr = {np.mean(avg_regrs)}, "
+           f"avg_regr_fea_unf = {np.mean(avg_regrs_fea_unf)}, "
            f"exec_time_over_nfeas = {np.mean(exec_times_over_nf)}, "
            f"exec_times_unfeas = "
            f"{np.mean(exec_times_ratio).round(3)}\n")
