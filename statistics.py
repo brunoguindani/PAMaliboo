@@ -83,9 +83,11 @@ for main_rng in main_rng_seeds:
     # VECTORS OF METRICS
     ## MAPE on all iterations
     mape_dic = dict.fromkeys(group_seeds, None)
-    ## Regret over time
+    ## Regret over time (one value per second)
     time_regr_dic = dict.fromkeys(group_seeds, None)
-    ## Time elapsed at end of an execution -> feasibility of the execution
+    ## Regret over iterations
+    iters_regr_dic = dict.fromkeys(group_seeds, None)
+    ## dict of time elapsed at end of an execution -> feasibility of execution
     time_feas_dic = {}
 
     # Loop over individual RNG seeds in this group
@@ -123,7 +125,10 @@ for main_rng in main_rng_seeds:
       regr_fea_unf = hist['target']
 
       # Get optimizer times for each evaluation
+      sorted_regrets = regrets.loc[0:].reset_index(drop=True)
+      sorted_regrets.name = 'regret'
       discrete_times = info['optimizer_time']
+      iters_regr_dic[rng] = pd.concat((discrete_times, sorted_regrets), axis=1)
       # Initialize vector of time instants
       delta = 1.0  # granularity
       time_grid = np.arange(0, discrete_times.iloc[-1]+delta, delta)
@@ -163,6 +168,11 @@ for main_rng in main_rng_seeds:
     end_time = np.min([d.index[-1] for d in time_regr_dic.values()])
     group_time_regr = time_regr_df.min(axis=1).loc[:end_time]
     group_time_regr_worst = time_regr_df.max(axis=1).loc[:end_time]
+    # Compute regret over iterations for the group
+    iters_regr = pd.concat(iters_regr_dic.values(),
+                             axis=0, ignore_index=True)
+    iters_regr = iters_regr.sort_values(by='optimizer_time') \
+                           .reset_index(drop=True)['regret'].cummin()
 
     # Collect scalar metrics for the group
     par_to_results[par]['avg_perc_unfeas'] = \
@@ -186,6 +196,7 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['time_regr_all'] = time_regr_dic
     par_to_results[par]['time_regr_worst'] = group_time_regr_worst
     par_to_results[par]['time_feas'] = time_feas_dic
+    par_to_results[par]['iters_regr'] = iters_regr
     par_to_results[par]['end_time'] = end_time
     # Write all group metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
@@ -199,36 +210,26 @@ for main_rng in main_rng_seeds:
     par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
     exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
     exec_times_total = par_to_results[par]['exec_times_total']
-    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']    
+    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']
 
-    # First plot: regret and feasibility of executions over time
+    # Regret and feasibility of executions over time
     times_regrs = par_to_results[par]['time_regr']
-    ax[0].plot(times_regrs, lw=1,
-                            label=label+f" (unfeasible: {par_n_unf:.3f})")
+    ax[0].plot(times_regrs, lw=1, label=label)
     color = ax[0].lines[-1].get_color()
     # Plot individual agents in the case of parallelism 1
     if par == 1:
+      e_t = par_to_results[par]['end_time']
       for t_d in par_to_results[par]['time_regr_all'].values():
-        e_t = par_to_results[par]['end_time']
-        ax[0].plot(t_d.loc[:e_t], lw=0.5, color=color)
-    # Loop on iterations (their optimizer time and feasibility)
-    for t, feas in par_to_results[par]['time_feas'].items():
-      # Compute approximation of optimizer time on the time grid
-      if t <= times_regrs.index[-1]:
-        time_approx = times_regrs.index[times_regrs.index > t][0]
-      else:
-        # if beyond last grid element, approximate to last grid element
-        time_approx = times_regrs.index[-1]
-      # Plot iteration differently according to its feasibility
-      facecolor = color if feas else 'none'
-      ax[0].scatter(time_approx, times_regrs[time_approx], marker='o', s=12,
-                    edgecolor=color, facecolors=facecolor, linewidths=0.5)
+        ax[0].plot(t_d.loc[:e_t], lw=0.25, color=color)
 
-    # Second plot: MAPE over iterations (only if available)
+    # # Regret over iterations
+    # ax[1].plot(par_to_results[par]['iters_regr'], label=label)
+
+    # MAPE over iterations (only if available)
     if par_to_results[par]['avg_mape'] is not None:
-      ax[1].plot(par_to_results[par]['avg_mape'], marker='o', label=label)
+      ax[1].plot(par_to_results[par]['avg_mape'], label=label)
 
-    # Third plot: rankings
+    # Rankings
     # This counts how many ensemble agents beat the PA model at time t, for
     # each t. By adding 1 we obtain the ranking of the PA model wrt the agents
     if par == indep_seq_runs:
@@ -248,16 +249,20 @@ for main_rng in main_rng_seeds:
       ax[2].grid(axis='y', alpha=0.4)
 
   # Other plot goodies
-  ## For first plot
   ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth",
                         zorder=-2)
-  title_full = "Target values of incumbents"
   ax[0].set_xlabel("time [s]")
   ax[0].grid(axis='y', alpha=0.4)
   ax[0].set_ylim(None, regret_ylim_single)
-  ax[0].set_title(title_full)
+  ax[0].set_title("Target values of incumbents")
   ax[0].legend()
-  # For second plot
+  # ax[1].axhline(ground, c='lightgreen', ls='--', label="ground truth",
+  #                       zorder=-2)
+  # ax[1].set_xlabel("iterations")
+  # ax[1].grid(axis='y', alpha=0.4)
+  # ax[1].set_ylim(None, regret_ylim_single)
+  # ax[1].set_title("Target values of incumbents")
+  # ax[1].legend()
   ax[1].set_xlabel("iterations")
   ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
@@ -274,28 +279,33 @@ for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
   label = f"parallelism {par}"
-  # First plot: average regret over time
-  df_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
-                       for r in main_rng_seeds], axis=1)
-  df_regr = df_regr.fillna(method='ffill').mean(axis=1)
+  # Average regret over time
+  df_time_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
+                            for r in main_rng_seeds], axis=1)
+  df_time_regr = df_time_regr.fillna(method='ffill').mean(axis=1)
   df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
                              for r in main_rng_seeds], axis=1)
   df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
-  ax[0].plot(df_regr, lw=1.5, label=label)
+  ax[0].plot(df_time_regr, lw=1.5, label=label)
   color = ax[0].lines[-1].get_color()
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
     label_ensemble = f"{label} (ensemble max.)"
     ax[0].plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
   elif par == indep_seq_runs:
-    df_par_async = df_regr.copy()
+    df_par_async = df_time_regr.copy()
 
-  # Second plot: MAPE over iterations (only if available)
+  # # Regret over iterations
+  # df_iters_regr = pd.concat([rng_to_par_to_results[r][par]['iters_regr']
+  #                            for r in main_rng_seeds], axis=1).mean(axis=1)
+  # ax[1].plot(df_iters_regr, lw=1.5, label=label)
+
+  # MAPE over iterations (only if available)
   try:
     df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
                      for r in main_rng_seeds], axis=1).fillna(method='ffill')
     df_mape = df_mape.fillna(method='ffill').mean(axis=1)
-    ax[1].plot(df_mape, marker='o', label=label)
+    ax[1].plot(df_mape, label=label)
   except:
     pass
 
@@ -308,14 +318,18 @@ ax[2].set_ylabel("ranking")
 ax[2].grid(axis='y', alpha=0.4)
 
 # Other plot goodies
-## For first plot
 ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
 ax[0].set_xlabel("time [s]")
 ax[0].set_ylim(None, regret_ylim_avg)
 ax[0].grid(axis='y', alpha=0.4)
-ax[0].set_title(title_full)
+ax[0].set_title("Target values of incumbents")
 ax[0].legend()
-## For second plot
+# ax[1].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
+# ax[1].set_xlabel("iterations")
+# ax[1].grid(axis='y', alpha=0.4)
+# ax[1].set_ylim(None, regret_ylim_single)
+# ax[1].set_title("Target values of incumbents")
+# ax[1].legend()
 ax[1].set_xlabel("iterations")
 ax[1].grid(axis='y', alpha=0.4)
 ax[1].set_title("Training MAPE")
