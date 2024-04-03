@@ -30,6 +30,11 @@ class LigenTuner(MeasurementInterface):
     self.df = pd.read_csv(self.file)
     self.domain = self.df.iloc[:, 0:self.num_features].to_numpy()
     self.the_clock = 0
+    self.history = pd.DataFrame(columns=
+                    'ALIGN_SPLIT,OPTIMIZE_SPLIT,OPTIMIZE_REPS,'
+                    'CUDA_THREADS,N_RESTART,CLIPPING,SIM_THRESH,BUFFER_SIZE,'
+                    'target,RMSD_0.75,evaluation_time'.split(','))
+    self.info = pd.DataFrame(columns=['optimizer_time'])
     super().__init__(args, input_manager=inp_man, objective=objective)
 
   def manipulator(self):
@@ -51,31 +56,35 @@ class LigenTuner(MeasurementInterface):
 
   def run(self, desired_result, input, limit):
     """Run given configuration and return performance"""
-    time_start = time.time()
     # Find best approximation
     x = np.array([d for d in desired_result.configuration.data.values()])
     distances = np.linalg.norm(self.domain - x, axis=1)
-    idx = np.argmin(distances)
+    dataset_idx = np.argmin(distances)
     # Build string from dataset row
-    x_approx = self.domain[idx,:]
-    row_approx = self.df.loc[idx]
-    x_all = np.hstack((idx, x_approx,
+    x_approx = self.domain[dataset_idx,:]
+    row_approx = self.df.loc[dataset_idx]
+    x_all = np.hstack((x_approx,
                        row_approx[[self.minimizing_col,
                                    self.constrained_col, self.exec_time_col]]))
-    x_strg = ','.join([str(_) for _ in x_all])
-    # Write configuration to the history
-    with open(history_file, 'a') as f:
-      f.write(x_strg + '\n')
     # Avdance clock and write other stuff to the information file
-    processing_time = time.time() - time_start
     evaluation_time = row_approx[self.exec_time_col]
-    self.the_clock += processing_time + evaluation_time
-    with open(info_file, 'a') as f:
-      f.write(f'{idx},{self.the_clock},{processing_time}\n')
+    self.the_clock += evaluation_time
+    history_idx = time.time()
+    self.history.loc[history_idx] = x_all
+    self.info.loc[history_idx] = [self.the_clock]
     # Compute integer values for optimizer
     minimizing_val = -int(row_approx[self.minimizing_col])
     constrained_val = int(1000*row_approx[self.constrained_col])
     return Result(time=minimizing_val, accuracy=-constrained_val)
+
+  def save_final_config(self, config):
+    self.the_clock = 0
+    self.history.sort_index(inplace=True)
+    self.history.reset_index(drop=True, inplace=True)
+    self.history.to_csv(history_file)
+    self.info.sort_index(inplace=True)
+    self.info.reset_index(drop=True, inplace=True)
+    self.info.to_csv(info_file)
 
 
 if __name__ == '__main__':
@@ -86,10 +95,6 @@ if __name__ == '__main__':
   namespace.test_limit = LigenTuner.iterations
 
   # Initialize relevant variables
-  history_header = ('index,ALIGN_SPLIT,OPTIMIZE_SPLIT,OPTIMIZE_REPS,'
-                    'CUDA_THREADS,N_RESTART,CLIPPING,SIM_THRESH,BUFFER_SIZE,'
-                    'target,RMSD_0.75,evaluation_time')
-  info_header = 'index,optimizer_time,processing_time'
   output_folder = os.path.join('outputs', 'opentuner_simulated')
 
   # Loop over RNG seeds and constraint thresholds
@@ -101,10 +106,6 @@ if __name__ == '__main__':
     os.makedirs(output_rng_folder)
     history_file = os.path.join(output_rng_folder, 'history.csv')
     info_file = os.path.join(output_rng_folder, 'info.csv')
-    with open(history_file, 'w') as f:
-      f.write(history_header + '\n')
-    with open(info_file, 'w') as f:
-      f.write(info_header + '\n')
     # Run optimizer
+    np.random.seed(rng)
     LigenTuner.main(namespace)
-    LigenTuner.the_clock = 0
