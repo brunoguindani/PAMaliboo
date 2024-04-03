@@ -29,12 +29,14 @@ class LigenTuner(MeasurementInterface):
     objective = ThresholdAccuracyMinimizeTime(threshold_lower_bound)
     self.df = pd.read_csv(self.file)
     self.domain = self.df.iloc[:, 0:self.num_features].to_numpy()
-    self.the_clock = 0
     self.history = pd.DataFrame(columns=
                     'ALIGN_SPLIT,OPTIMIZE_SPLIT,OPTIMIZE_REPS,'
                     'CUDA_THREADS,N_RESTART,CLIPPING,SIM_THRESH,BUFFER_SIZE,'
                     'target,RMSD_0.75,evaluation_time'.split(','))
     self.info = pd.DataFrame(columns=['optimizer_time'])
+    self.parallelism = args.parallelism
+    self.queue = []
+    self.the_clock = 0
     super().__init__(args, input_manager=inp_man, objective=objective)
 
   def manipulator(self):
@@ -68,7 +70,15 @@ class LigenTuner(MeasurementInterface):
                                    self.constrained_col, self.exec_time_col]]))
     # Avdance clock and write other stuff to the information file
     evaluation_time = row_approx[self.exec_time_col]
-    self.the_clock += evaluation_time
+    if len(self.queue) < self.parallelism:
+      self.queue.append(evaluation_time)
+    else:
+      idx_queue_min = np.argmin(self.queue)
+      time_delta = self.queue[idx_queue_min]
+      self.queue = [(q-time_delta) for q in self.queue]
+      del self.queue[idx_queue_min]
+      self.the_clock += time_delta
+    print(self.queue)
     history_idx = time.time()
     self.history.loc[history_idx] = x_all
     self.info.loc[history_idx] = [self.the_clock]
@@ -81,10 +91,10 @@ class LigenTuner(MeasurementInterface):
     self.the_clock = 0
     self.history.sort_index(inplace=True)
     self.history.reset_index(drop=True, inplace=True)
-    self.history.to_csv(history_file)
+    self.history.to_csv(history_file, index_label='index')
     self.info.sort_index(inplace=True)
     self.info.reset_index(drop=True, inplace=True)
-    self.info.to_csv(info_file)
+    self.info.to_csv(info_file, index_label='index')
 
 
 if __name__ == '__main__':
