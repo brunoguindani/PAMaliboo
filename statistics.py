@@ -21,7 +21,7 @@ import sys
 # Campaign parameters
 parallelism_levels = [10, 1, 'opentuner']
 indep_seq_runs = 10
-num_runs = 5
+num_runs = 10
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
@@ -49,6 +49,7 @@ ground = best[target_col]
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 rng_to_par_to_results = {m: {} for m in main_rng_seeds}
 par_async_rankings = dict.fromkeys(main_rng_seeds, None)
+print("Saving plots to", root_output_folder)
 
 for main_rng in main_rng_seeds:
   # Initialize dict of global results for this main RNG seed
@@ -85,8 +86,6 @@ for main_rng in main_rng_seeds:
     mape_dic = dict.fromkeys(group_seeds, None)
     ## Regret over time (one value per second)
     time_regr_dic = dict.fromkeys(group_seeds, None)
-    ## Regret over iterations
-    iters_regr_dic = dict.fromkeys(group_seeds, None)
     ## dict of time elapsed at end of an execution -> feasibility of execution
     time_feas_dic = {}
 
@@ -125,10 +124,7 @@ for main_rng in main_rng_seeds:
       regr_fea_unf = hist['target']
 
       # Get optimizer times for each evaluation
-      sorted_regrets = regrets.loc[0:].reset_index(drop=True)
-      sorted_regrets.name = 'regret'
       discrete_times = info['optimizer_time']
-      iters_regr_dic[rng] = pd.concat((discrete_times, sorted_regrets), axis=1)
       # Initialize vector of time instants
       delta = 1.0  # granularity
       time_grid = np.arange(0, discrete_times.iloc[-1]+delta, delta)
@@ -168,11 +164,6 @@ for main_rng in main_rng_seeds:
     end_time = np.min([d.index[-1] for d in time_regr_dic.values()])
     group_time_regr = time_regr_df.min(axis=1).loc[:end_time]
     group_time_regr_worst = time_regr_df.max(axis=1).loc[:end_time]
-    # Compute regret over iterations for the group
-    iters_regr = pd.concat(iters_regr_dic.values(),
-                             axis=0, ignore_index=True)
-    iters_regr = iters_regr.sort_values(by='optimizer_time') \
-                           .reset_index(drop=True)['regret'].cummin()
 
     # Collect scalar metrics for the group
     par_to_results[par]['avg_perc_unfeas'] = \
@@ -196,7 +187,6 @@ for main_rng in main_rng_seeds:
     par_to_results[par]['time_regr_all'] = time_regr_dic
     par_to_results[par]['time_regr_worst'] = group_time_regr_worst
     par_to_results[par]['time_feas'] = time_feas_dic
-    par_to_results[par]['iters_regr'] = iters_regr
     par_to_results[par]['end_time'] = end_time
     # Write all group metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
@@ -205,7 +195,7 @@ for main_rng in main_rng_seeds:
   # Now, for the current main RNG seed, we print and plot stuff
   fig, ax = plt.subplots(3, 1, figsize=(8, 12))
   for par in parallelism_levels:
-    label = f"parallelism {par}"
+    label = par if par == 'opentuner' else f"par. {par}"
     par_n_unf = par_to_results[par]['avg_perc_unfeas']
     par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
     exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
@@ -221,9 +211,6 @@ for main_rng in main_rng_seeds:
       e_t = par_to_results[par]['end_time']
       for t_d in par_to_results[par]['time_regr_all'].values():
         ax[0].plot(t_d.loc[:e_t], lw=0.25, color=color)
-
-    # # Regret over iterations
-    # ax[1].plot(par_to_results[par]['iters_regr'], label=label)
 
     # MAPE over iterations (only if available)
     if par_to_results[par]['avg_mape'] is not None:
@@ -243,7 +230,7 @@ for main_rng in main_rng_seeds:
       df_ranking = 1 + df_p1.apply(comp, axis=0).sum(axis=1)
       par_async_rankings[main_rng] = df_ranking
       ax[2].plot(df_ranking)
-      ax[2].set_title("Ranking of centralized model vs ensembles")
+      ax[2].set_title("Ranking of centralized model vs ensemble members")
       ax[2].set_xlabel("time [s]")
       ax[2].set_ylabel("ranking")
       ax[2].grid(axis='y', alpha=0.4)
@@ -256,13 +243,6 @@ for main_rng in main_rng_seeds:
   ax[0].set_ylim(None, regret_ylim_single)
   ax[0].set_title("Target values of incumbents")
   ax[0].legend()
-  # ax[1].axhline(ground, c='lightgreen', ls='--', label="ground truth",
-  #                       zorder=-2)
-  # ax[1].set_xlabel("iterations")
-  # ax[1].grid(axis='y', alpha=0.4)
-  # ax[1].set_ylim(None, regret_ylim_single)
-  # ax[1].set_title("Target values of incumbents")
-  # ax[1].legend()
   ax[1].set_xlabel("iterations")
   ax[1].grid(axis='y', alpha=0.4)
   ax[1].set_title("Training MAPE")
@@ -274,11 +254,14 @@ for main_rng in main_rng_seeds:
   print()
 
 # Make global plot
-fig, ax = plt.subplots(3, 1, figsize=(8, 12))
+figsize = (8, 4)
+fig_a, ax_a = plt.subplots(figsize=figsize)
+fig_b, ax_b = plt.subplots(figsize=figsize)
+fig_c, ax_c = plt.subplots(figsize=figsize)
 for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
-  label = f"parallelism {par}"
+  label = par if par == 'opentuner' else f"par. {par}"
   # Average regret over time
   df_time_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
                             for r in main_rng_seeds], axis=1)
@@ -286,59 +269,51 @@ for par in parallelism_levels:
   df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
                              for r in main_rng_seeds], axis=1)
   df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
-  ax[0].plot(df_time_regr, lw=1.5, label=label)
-  color = ax[0].lines[-1].get_color()
+  ax_a.plot(df_time_regr, lw=1.5, label=label)
+  color = ax_a.lines[-1].get_color()
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
     label_ensemble = f"{label} (ensemble max.)"
-    ax[0].plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
+    ax_a.plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
   elif par == indep_seq_runs:
     df_par_async = df_time_regr.copy()
-
-  # # Regret over iterations
-  # df_iters_regr = pd.concat([rng_to_par_to_results[r][par]['iters_regr']
-  #                            for r in main_rng_seeds], axis=1).mean(axis=1)
-  # ax[1].plot(df_iters_regr, lw=1.5, label=label)
 
   # MAPE over iterations (only if available)
   try:
     df_mape = pd.concat([rng_to_par_to_results[r][par]['avg_mape']
                      for r in main_rng_seeds], axis=1).fillna(method='ffill')
     df_mape = df_mape.fillna(method='ffill').mean(axis=1)
-    ax[1].plot(df_mape, label=label)
+    ax_b.plot(df_mape, label=label)
   except:
     pass
 
 # Make rankings plot
 avg_ranking = pd.concat(par_async_rankings.values(), axis=1).mean(axis=1)
-ax[2].plot(avg_ranking)
-ax[2].set_title("Ranking of centralized model vs ensembles")
-ax[2].set_xlabel("time [s]")
-ax[2].set_ylabel("ranking")
-ax[2].grid(axis='y', alpha=0.4)
+ax_c.plot(avg_ranking)
+ax_c.set_title("Ranking of centralized model vs ensemble members")
+ax_c.set_xlabel("time [s]")
+ax_c.set_ylabel("ranking")
+ax_c.grid(axis='y', alpha=0.4)
 
 # Other plot goodies
-ax[0].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
-ax[0].set_xlabel("time [s]")
-ax[0].set_ylim(None, regret_ylim_avg)
-ax[0].grid(axis='y', alpha=0.4)
-ax[0].set_title("Target values of incumbents")
-ax[0].legend()
-# ax[1].axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
-# ax[1].set_xlabel("iterations")
-# ax[1].grid(axis='y', alpha=0.4)
-# ax[1].set_ylim(None, regret_ylim_single)
-# ax[1].set_title("Target values of incumbents")
-# ax[1].legend()
-ax[1].set_xlabel("iterations")
-ax[1].grid(axis='y', alpha=0.4)
-ax[1].set_title("Training MAPE")
-ax[1].legend()
-fig.subplots_adjust(hspace=0.25)
-# Save global plot
-suffix = os.path.basename(root_output_folder)
-plot_file = os.path.join(root_output_folder, f'00_{suffix}.png')
-fig.savefig(plot_file, bbox_inches='tight', dpi=300)
+ax_a.axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
+ax_a.set_xlabel("time [s]")
+ax_a.set_ylim(None, regret_ylim_avg)
+ax_a.grid(axis='y', alpha=0.4)
+ax_a.set_title("Target values of incumbents")
+ax_a.legend()
+ax_b.set_xlabel("iterations")
+ax_b.grid(axis='y', alpha=0.4)
+ax_b.set_title("Training MAPE")
+ax_b.legend()
+
+# Save global plots
+letters_to_figs = {'a': fig_a, 'b': fig_b, 'c': fig_c}
+for letter, fig in letters_to_figs.items():
+  basename = os.path.basename(root_output_folder)
+  plot_file = os.path.join(root_output_folder, f'00_{basename}_{letter}.png')
+  # fig.subplots_adjust(hspace=0.25)
+  fig.savefig(plot_file, bbox_inches='tight', dpi=300)
 exit()
 
 # Compute scalar global metrics, print them and save them to file
