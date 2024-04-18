@@ -29,6 +29,7 @@ root_output_folder = os.path.join('outputs', sys.argv[1])
 df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
 regret_ylim_single = 2500
 regret_ylim_avg = 2500
+stop_time = 42000
 
 # Find real feasible optimum
 df_all = pd.read_csv(df_all_file)
@@ -266,14 +267,16 @@ for par in parallelism_levels:
   df_time_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
                             for r in main_rng_seeds], axis=1)
   df_time_regr = df_time_regr.fillna(method='ffill').mean(axis=1)
-  df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
-                             for r in main_rng_seeds], axis=1)
-  df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
+  stop_value = df_time_regr[stop_time]
+  print(f"Incumbent for par = {par} at time {stop_time}: {stop_value}")
   ax_a.plot(df_time_regr, lw=1.5, label=label)
   color = ax_a.lines[-1].get_color()
   ## Plot all ensembles or only ensemble bounds
   if par == 1:
     label_ensemble = f"{label} (ensemble max.)"
+    df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
+                               for r in main_rng_seeds], axis=1)
+    df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
     ax_a.plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
   elif par == indep_seq_runs:
     df_par_async = df_time_regr.copy()
@@ -293,11 +296,13 @@ ax_c.plot(avg_ranking)
 ax_c.set_title("Ranking of centralized model vs ensemble members")
 ax_c.set_xlabel("time [s]")
 ax_c.set_ylabel("ranking")
+ax_c.set_xlim(0, stop_time)
 ax_c.grid(axis='y', alpha=0.4)
 
 # Other plot goodies
 ax_a.axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
 ax_a.set_xlabel("time [s]")
+ax_a.set_xlim(0, stop_time)
 ax_a.set_ylim(None, regret_ylim_avg)
 ax_a.grid(axis='y', alpha=0.4)
 ax_a.set_title("Target values of incumbents")
@@ -314,7 +319,7 @@ for letter, fig in letters_to_figs.items():
   plot_file = os.path.join(root_output_folder, f'00_{basename}_{letter}.png')
   # fig.subplots_adjust(hspace=0.25)
   fig.savefig(plot_file, bbox_inches='tight', dpi=300)
-exit()
+exit("\n")
 
 # Compute scalar global metrics, print them and save them to file
 strg = "Global metrics:\n"
