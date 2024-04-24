@@ -135,8 +135,8 @@ class LigenDummyObjectiveFunction(ObjectiveFunction):
     return objective_value
 
 
-class LigenReducedDummyObjective(ObjectiveFunction):
-  script_name = 'ligen_reduced_dummy.py'
+class LigenFullDummyObjective(ObjectiveFunction):
+  script_name = 'ligen_full_dummy.py'
   def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     return ['python', f'resources/ligen/{self.script_name}'] + \
@@ -157,15 +157,11 @@ class LigenReducedDummyObjective(ObjectiveFunction):
     return info
 
 
-class LigenFullDummyObjective(LigenReducedDummyObjective):
-  script_name = 'ligen_full_dummy.py'
-
-
-class LigenSynthDummyObjective(LigenReducedDummyObjective):
+class LigenSynthDummyObjective(LigenFullDummyObjective):
   script_name = 'ligen_synth_dummy.py'
 
 
-class LigenSimulatedObjective(LigenReducedDummyObjective):
+class LigenSimulatedObjective(LigenFullDummyObjective):
   script_name = None
   def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
