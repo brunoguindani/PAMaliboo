@@ -196,3 +196,14 @@ class LigenSimulatorSubmitter(SimulatorSubmitter):
     self.logger.info("Execution complete")
     # Return nanoseconds passed since the Unix epoch as a mock-up ID value
     return time.time_ns()
+
+
+
+class StereomatchSimulatorSubmitter(LigenSimulatorSubmitter):
+  num_features = 4
+
+  def write_to_file(self, idx: int, file_path: str) -> None:
+    """Write results from row `idx` to `file_path`"""
+    obj, time_total = self.df.iloc[idx].loc[['-cost', 'time']]
+    with open(file_path, 'w') as f:
+      f.write(f'{obj} {time_total}\n')

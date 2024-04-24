@@ -166,3 +166,23 @@ class LigenSimulatedObjective(LigenFullDummyObjective):
   def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     return [str(_) for _ in x]
+
+
+
+class StereomatchSimulatedObjective(ObjectiveFunction):
+  def execution_command(self, x: np.ndarray) -> List[str]:
+    """Return the command to execute the target with the given configuration"""
+    return [str(_) for _ in x]
+
+  def parse_and_evaluate(self, output_file: str) -> float:
+    """Parse given output file and return the function evaluation"""
+    with open(output_file, 'r') as f:
+      val, _ = f.read().strip().split()
+    return val
+
+  def parse_additional_info(self, output_file: str) -> Dict[str, float]:
+    """Parse given output file and return additional auxiliary information"""
+    with open(output_file, 'r') as f:
+      time_total = float(f.read().strip().split()[1])
+    info = {'time': time_total, 'evaluation_time': time_total}
+    return info
