@@ -119,7 +119,7 @@ class DummyObjective(ObjectiveFunction):
     return ret
 
 
-class LigenDummyObjectiveFunction(ObjectiveFunction):
+class LigenDummyObjective(ObjectiveFunction):
   def execution_command(self, x: np.ndarray) -> List[str]:
     """Return the command to execute the target with the given configuration"""
     return ['./ligen.sh'] + [str(_) for _ in x]
