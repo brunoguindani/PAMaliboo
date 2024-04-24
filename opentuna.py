@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
   # Loop over RNG seeds and constraint thresholds
   root_rng_seed = 20230524
-  for rng in range(root_rng_seed, root_rng_seed+5):
+  for rng in range(root_rng_seed, root_rng_seed+10):
     threshold_lower_bound = LigenTuner.constraints[0]
     # Initialize results file
     output_rng_folder = os.path.join(output_folder, 'par_10', f'rng_{rng}')

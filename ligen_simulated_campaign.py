@@ -18,8 +18,6 @@ import os
 import pandas as pd
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.linear_model import Ridge
-# from sklearn.neighbors import KNeighborsRegressor
-# from sklearn.svm import SVR
 
 from pamaliboo.acquisitions import ExpectedImprovementMachineLearning as EIML
 from pamaliboo.batch import BatchExecutor
@@ -34,10 +32,13 @@ parallelism = 10
 num_runs = 5
 num_iter_seq = 100
 n_init = 5
+errinit = 1.5
+trans = 50
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
 root_output_folder = os.path.join('outputs',
                                  f'simulated_p{parallelism}_init{n_init}')
+os.makedirs(root_output_folder, exist_ok=True)
 log_file = os.path.basename(root_output_folder) + '.log'
 log_file_path = os.path.join(root_output_folder, log_file)
 ml_models = [Ridge()]
@@ -72,7 +73,8 @@ def run_experiment(rng):
     os.makedirs(output_folder, exist_ok=True)
 
     # Initialize library objects
-    acq = EIML(constraints=opt_constraints, models=ml_models,
+    acq = EIML(# error_init=errinit, error_maxiter=trans,
+               constraints=opt_constraints, models=ml_models,
                train_periodicity=3, pickle_folder=None,
                maximize_n_warmup=10, maximize_n_iter=100)
     kernel = Matern(nu=2.5)

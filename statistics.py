@@ -21,12 +21,14 @@ import sys
 # Campaign parameters
 parallelism_levels = [10, 1, 'opentuner']
 indep_seq_runs = 10
-num_runs = 10
+num_runs = int(sys.argv[2])
 root_rng_seed = 20230524
 opt_constraints = {'RMSD_0.75': (0, 2.1)}
 target_col = '-RMSD^3*TIME'
 root_output_folder = os.path.join('outputs', sys.argv[1])
-df_all_file = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')
+table_prefix = 'full' if 'full' in sys.argv[1] else 'synth'
+df_all_file = os.path.join('resources', 'ligen',
+                          f'ligen_{table_prefix}_table.csv')
 regret_ylim_single = 2500
 regret_ylim_avg = 2500
 stop_time = 42000
