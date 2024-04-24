@@ -10,7 +10,6 @@ __pycache__
 *.sublime-*
 
 # Output files and folders
-*.csv
 *.pickle
 *.stdout
 output*/
