@@ -166,10 +166,18 @@ class LigenSimulatorSubmitter(SimulatorSubmitter):
   `submit()`. This class incorporates what is done by external scripts in other
   `Submitter`s.
   """
+  num_features = 8
+
   def __init__(self, output_folder: str, dataset_path: str):
     self.df = pd.read_csv(dataset_path)
-    self.domain = self.df.iloc[:, 0:8].to_numpy()
+    self.domain = self.df.iloc[:, 0:self.num_features].to_numpy()
     super().__init__(output_folder)
+
+  def write_to_file(self, idx: int, file_path: str) -> None:
+    """Write results from row `idx` to `file_path`"""
+    rmsd, time_total = self.df.iloc[idx].loc[['RMSD_0.75', 'TIME_TOTAL']]
+    with open(file_path, 'w') as f:
+      f.write(f'{rmsd} {time_total}\n')
 
   def submit(self, cmd: List[str], output_file: str) -> int:
     """
@@ -184,9 +192,7 @@ class LigenSimulatorSubmitter(SimulatorSubmitter):
     x = np.array([int(_) for _ in cmd])
     distances = np.linalg.norm(self.domain - x, axis=1)
     idx = np.argmin(distances)
-    rmsd, time_total = self.df.iloc[idx].loc[['RMSD_0.75', 'TIME_TOTAL']]
-    with open(file_path, 'w') as f:
-      f.write(f'{rmsd} {time_total}\n')
+    self.write_to_file(idx, file_path)
     self.logger.info("Execution complete")
     # Return nanoseconds passed since the Unix epoch as a mock-up ID value
     return time.time_ns()
