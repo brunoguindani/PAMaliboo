@@ -32,6 +32,7 @@ df_all_file = os.path.join('resources', 'ligen',
 regret_ylim_single = 2500
 regret_ylim_avg = 2500
 stop_time = 42000
+time_delta = 1.0  # granularity of regret computation in time
 
 # Find real feasible optimum
 df_all = pd.read_csv(df_all_file)
@@ -52,6 +53,7 @@ ground = best[target_col]
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
 rng_to_par_to_results = {m: {} for m in main_rng_seeds}
 par_async_rankings = dict.fromkeys(main_rng_seeds, None)
+par_to_labels = {1: 'EMaliboo', 10: 'PAMaliboo', 'opentuner': 'OpenTuner'}
 print("Saving plots to", root_output_folder)
 
 for main_rng in main_rng_seeds:
@@ -69,28 +71,10 @@ for main_rng in main_rng_seeds:
 
     # Initialize results dictionaries for this group: each entry links an RNG
     # seed in the group (i.e. an individual run) to a certain measurement
-    # SCALAR METRICS
-    ## Percentage of unfeasible executions including initial points
-    perc_unfeas_dic = dict.fromkeys(group_seeds, None)
-    ## Number of feasible executions including initial points
-    n_feas_dic = dict.fromkeys(group_seeds, None)
-    ## Number of unfeasible executions excluding initial points
-    n_unfeas_noinit_dic = dict.fromkeys(group_seeds, None)
-    ## Average regret on feasible points over all iterations
-    avg_regr_dic = dict.fromkeys(group_seeds, None)
-    ## Average regret on all points (both feasible and unfeasible) over all
-    ## iterations
-    avg_regr_fea_unf_dic = dict.fromkeys(group_seeds, None)
-    ## Sums of execution times of target functions (unfeasible and total)
-    exec_times_unfeas_dic = dict.fromkeys(group_seeds, None)
-    exec_times_total_dic = dict.fromkeys(group_seeds, None)
-    # VECTORS OF METRICS
     ## MAPE on all iterations
     mape_dic = dict.fromkeys(group_seeds, None)
     ## Regret over time (one value per second)
     time_regr_dic = dict.fromkeys(group_seeds, None)
-    ## dict of time elapsed at end of an execution -> feasibility of execution
-    time_feas_dic = {}
 
     # Loop over individual RNG seeds in this group
     for rng in group_seeds:
@@ -123,35 +107,17 @@ for main_rng in main_rng_seeds:
         points.append(curr)
       regrets = pd.Series(points, index=hist.index)
 
-      # Regret vector considering both feasible & unfeasible points
-      regr_fea_unf = hist['target']
-
       # Get optimizer times for each evaluation
       discrete_times = info['optimizer_time']
       # Initialize vector of time instants
-      delta = 1.0  # granularity
-      time_grid = np.arange(0, discrete_times.iloc[-1]+delta, delta)
+      time_grid = np.arange(0, discrete_times.iloc[-1]+time_delta, time_delta)
       time_regr = pd.Series(index=time_grid)
       # Collect current regret at each time instant in the grid
       for i in range(hist.index.max()):
         time_regr[discrete_times[i]:discrete_times[i+1]] = regrets[i]
       time_regr[discrete_times.iloc[-1]:] = regrets.iloc[-1]
 
-      # Collect time -> feasibility
-      for t, feas_t in zip(discrete_times, feas):
-        time_feas_dic[t] = feas_t
-
-      # Execution times of target functions (recall: f(x) = RMSD^3(x) * T(x))
-      exec_times = hist['target'] / hist['RMSD_0.75'] ** 3
-      exec_times_unfeas_dic[rng] = exec_times[~feas].sum()
-      exec_times_total_dic[rng] = exec_times.sum()
-
       # Add stuff to results dictionaries
-      perc_unfeas_dic[rng] = (~feas).sum() / hist.shape[0]
-      n_feas_dic[rng] = feas.sum()
-      n_unfeas_noinit_dic[rng] = ( (~feas.loc[feas.index != -1]).sum() )
-      avg_regr_dic[rng] = regrets.mean()
-      avg_regr_fea_unf_dic[rng] = regr_fea_unf.cummin().mean()
       if 'train_MAPE' in info.columns:
         mape_dic[rng] = info['train_MAPE']
       time_regr_dic[rng] = time_regr
@@ -166,30 +132,13 @@ for main_rng in main_rng_seeds:
     # Stop at the earliest time at which a seed in the group has finished
     end_time = np.min([d.index[-1] for d in time_regr_dic.values()])
     group_time_regr = time_regr_df.min(axis=1).loc[:end_time]
-    group_time_regr_worst = time_regr_df.max(axis=1).loc[:end_time]
 
     # Collect scalar metrics for the group
-    par_to_results[par]['avg_perc_unfeas'] = \
-                                      np.mean(list(perc_unfeas_dic.values()))
-    par_to_results[par]['avg_n_unfeas_noinit'] = \
-                       np.mean(list(n_unfeas_noinit_dic.values()))
-    par_to_results[par]['avg_regr'] = np.mean(list(avg_regr_dic.values()))
-    par_to_results[par]['avg_regr_fea_unf'] = \
-                       np.mean(list(avg_regr_fea_unf_dic.values()))
     par_to_results[par]['num_indep_runs'] = len(group_seeds)
-    par_to_results[par]['indep_runs_iters'] = hist.shape[0]
-    exec_times_unfeas = sum(exec_times_unfeas_dic.values())
-    exec_times_total = sum(exec_times_total_dic.values())
-    n_feas = sum(n_feas_dic.values())
-    par_to_results[par]['exec_times_unfeas'] = exec_times_unfeas
-    par_to_results[par]['exec_times_total'] = exec_times_total
-    par_to_results[par]['exec_time_over_nfeas'] = exec_times_total / n_feas
     # Collect combined vectors of metrics for the group
     par_to_results[par]['avg_mape'] = group_avg_mape
     par_to_results[par]['time_regr'] = group_time_regr
     par_to_results[par]['time_regr_all'] = time_regr_dic
-    par_to_results[par]['time_regr_worst'] = group_time_regr_worst
-    par_to_results[par]['time_feas'] = time_feas_dic
     par_to_results[par]['end_time'] = end_time
     # Write all group metrics into the global results dict
     rng_to_par_to_results[main_rng] = par_to_results
@@ -198,16 +147,16 @@ for main_rng in main_rng_seeds:
   # Now, for the current main RNG seed, we print and plot stuff
   fig, ax = plt.subplots(3, 1, figsize=(8, 12))
   for par in parallelism_levels:
-    label = par if par == 'opentuner' else f"par. {par}"
-    par_n_unf = par_to_results[par]['avg_perc_unfeas']
-    par_n_unf_noinit = par_to_results[par]['avg_n_unfeas_noinit']
-    exec_times_unfeas = par_to_results[par]['exec_times_unfeas']
-    exec_times_total = par_to_results[par]['exec_times_total']
-    exec_time_over_nfeas = par_to_results[par]['exec_time_over_nfeas']
+    label = par_to_labels[par]
 
     # Regret and feasibility of executions over time
     times_regrs = par_to_results[par]['time_regr']
+    if stop_time > times_regrs.index[-1]:
+      # extend to `stop_time` if it has not been reached (only in this plot)
+      new_times = np.arange(0, stop_time+time_delta, time_delta)
+      times_regrs = times_regrs.reindex(new_times, method='ffill')
     ax[0].plot(times_regrs, lw=1, label=label)
+    ax[0].set_xlim(0, stop_time)
     color = ax[0].lines[-1].get_color()
     # Plot individual agents in the case of parallelism 1
     if par == 1:
@@ -236,6 +185,7 @@ for main_rng in main_rng_seeds:
       ax[2].set_title("Ranking of centralized model vs ensemble members")
       ax[2].set_xlabel("time [s]")
       ax[2].set_ylabel("ranking")
+      ax[2].set_xlim(0, stop_time)
       ax[2].grid(axis='y', alpha=0.4)
 
   # Other plot goodies
@@ -264,7 +214,7 @@ fig_c, ax_c = plt.subplots(figsize=figsize)
 for par in parallelism_levels:
   num_indep_runs = rng_to_par_to_results[main_rng_seeds[0]] \
                                         [par]['num_indep_runs']
-  label = par if par == 'opentuner' else f"par. {par}"
+  label = par_to_labels[par]
   # Average regret over time
   df_time_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
                             for r in main_rng_seeds], axis=1)
@@ -272,16 +222,6 @@ for par in parallelism_levels:
   stop_value = df_time_regr[stop_time]
   print(f"Incumbent for par = {par} at time {stop_time}: {stop_value}")
   ax_a.plot(df_time_regr, lw=1.5, label=label)
-  color = ax_a.lines[-1].get_color()
-  ## Plot all ensembles or only ensemble bounds
-  if par == 1:
-    label_ensemble = f"{label} (ensemble max.)"
-    df_regr_worst = pd.concat([rng_to_par_to_results[r][par]['time_regr_worst']
-                               for r in main_rng_seeds], axis=1)
-    df_regr_worst = df_regr_worst.fillna(method='ffill').mean(axis=1)
-    ax_a.plot(df_regr_worst, lw=0.25, label=label_ensemble, color=color)
-  elif par == indep_seq_runs:
-    df_par_async = df_time_regr.copy()
 
   # MAPE over iterations (only if available)
   try:
@@ -295,7 +235,6 @@ for par in parallelism_levels:
 # Make rankings plot
 avg_ranking = pd.concat(par_async_rankings.values(), axis=1).mean(axis=1)
 ax_c.plot(avg_ranking)
-ax_c.set_title("Ranking of centralized model vs ensemble members")
 ax_c.set_xlabel("time [s]")
 ax_c.set_ylabel("ranking")
 ax_c.set_xlim(0, stop_time)
@@ -307,11 +246,10 @@ ax_a.set_xlabel("time [s]")
 ax_a.set_xlim(0, stop_time)
 ax_a.set_ylim(None, regret_ylim_avg)
 ax_a.grid(axis='y', alpha=0.4)
-ax_a.set_title("Target values of incumbents")
 ax_a.legend()
-ax_b.set_xlabel("iterations")
+ax_b.set_xscale('log')
+ax_b.set_xlabel("log(iterations)")
 ax_b.grid(axis='y', alpha=0.4)
-ax_b.set_title("Training MAPE")
 ax_b.legend()
 
 # Save global plots
@@ -321,34 +259,3 @@ for letter, fig in letters_to_figs.items():
   plot_file = os.path.join(root_output_folder, f'00_{basename}_{letter}.png')
   # fig.subplots_adjust(hspace=0.25)
   fig.savefig(plot_file, bbox_inches='tight', dpi=300)
-exit("\n")
-
-# Compute scalar global metrics, print them and save them to file
-strg = "Global metrics:\n"
-for par in parallelism_levels:
-  nums_unfeas = [ rng_to_par_to_results[r][par]['avg_perc_unfeas']
-                  for r in main_rng_seeds ]
-  nums_unfeas_noinit = [ rng_to_par_to_results[r][par]['avg_n_unfeas_noinit']
-                  for r in main_rng_seeds ]
-  avg_regrs = [ rng_to_par_to_results[r][par]['avg_regr']
-                for r in main_rng_seeds ]
-  avg_regrs_fea_unf = [ rng_to_par_to_results[r][par]['avg_regr_fea_unf']
-                        for r in main_rng_seeds ]
-  exec_times_unfeas = [ rng_to_par_to_results[r][par]['exec_times_unfeas']
-                        for r in main_rng_seeds ]
-  exec_times_total = [ rng_to_par_to_results[r][par]['exec_times_total']
-                       for r in main_rng_seeds ]
-  exec_times_ratio = [u/t for u, t in zip(exec_times_unfeas, exec_times_total)]
-  exec_times_over_nf = [ rng_to_par_to_results[r][par]['exec_time_over_nfeas']
-                          for r in main_rng_seeds ]
-  strg += (f"par = {par}: avg_perc_unfeas = {np.mean(nums_unfeas)}, "
-           f"avg_n_unfeas_noinit = {np.mean(nums_unfeas_noinit)}, "
-           f"avg_regr = {np.mean(avg_regrs)}, "
-           f"avg_regr_fea_unf = {np.mean(avg_regrs_fea_unf)}, "
-           f"exec_time_over_nfeas = {np.mean(exec_times_over_nf)}, "
-           f"exec_times_unfeas = "
-           f"{np.mean(exec_times_ratio).round(3)}\n")
-print(strg)
-res_file = os.path.join(root_output_folder, 'results.txt')
-with open(res_file, 'w') as f:
-  f.write(strg)
