@@ -178,7 +178,7 @@ class StereomatchSimulatedObjective(ObjectiveFunction):
     """Parse given output file and return the function evaluation"""
     with open(output_file, 'r') as f:
       val, _ = f.read().strip().split()
-    return val
+    return float(val)
 
   def parse_additional_info(self, output_file: str) -> Dict[str, float]:
     """Parse given output file and return additional auxiliary information"""
