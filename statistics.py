@@ -48,6 +48,7 @@ df_feas = df_all[ df_all['feas'] == True ]
 ## Find point with minimum target value among those points
 best = df_feas.loc[ df_feas[target_col] == df_feas[target_col].min() ].iloc[0]
 ground = best[target_col]
+default_config_val = 1943.90948125139
 
 # Initialize main RNG seeds and other containers
 main_rng_seeds = [root_rng_seed+i for i in range(num_runs)]
@@ -241,7 +242,10 @@ ax_c.set_xlim(0, stop_time)
 ax_c.grid(axis='y', alpha=0.4)
 
 # Other plot goodies
-ax_a.axhline(ground, c='lightgreen', ls='--', label="ground truth", zorder=-2)
+if 'synth' in root_output_folder:
+  ax_a.axhline(ground, c='lightgreen', ls='--', label="ground truth")
+elif 'full' in root_output_folder:
+  ax_a.axhline(default_config_val, c='gray', ls='--', label="default config.")
 ax_a.set_xlabel("time [s]")
 ax_a.set_xlim(0, stop_time)
 ax_a.set_ylim(None, regret_ylim_avg)
