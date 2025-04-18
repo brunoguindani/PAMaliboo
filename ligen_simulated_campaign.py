@@ -29,15 +29,16 @@ from pamaliboo.optimizer import OptimizerSimulator
 
 # Campaign parameters
 parallelism = 10
-num_runs = 5
+num_runs = 10
 num_iter_seq = 100
 n_init = 5
 errinit = 1.5
 trans = 50
+Rmax = 2.1
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
 root_output_folder = os.path.join('outputs',
-                                 f'simulated_p{parallelism}_init{n_init}')
+                                 f'simulated_R{Rmax}_p{parallelism}_init{n_init}')
 os.makedirs(root_output_folder, exist_ok=True)
 log_file = os.path.basename(root_output_folder) + '.log'
 log_file_path = os.path.join(root_output_folder, log_file)
@@ -49,7 +50,7 @@ opt_bounds = {'ALIGN_SPLIT': [8, 72.01], 'OPTIMIZE_SPLIT': [8, 72.01],
               'OPTIMIZE_REPS': [1, 5.01], 'CUDA_THREADS': [32, 256.01],
               'N_RESTART': [256, 1024.01], 'CLIPPING': [10, 256.01],
               'SIM_THRESH': [1, 4.01], 'BUFFER_SIZE': [1048576, 52428800.01]}
-opt_constraints = {'RMSD_0.75': (0, 2.1)}
+opt_constraints = {'RMSD_0.75': (0, Rmax)}
 features = list(opt_bounds.keys())
 domain = os.path.join('resources', 'ligen', 'ligen_synth_domain.csv')
 table = os.path.join('resources', 'ligen', 'ligen_synth_table.csv')

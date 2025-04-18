@@ -28,16 +28,15 @@ from pamaliboo.optimizer import OptimizerSimulator
 
 
 # Campaign parameters
-parallelism = 10
+parallelism = 4
 num_runs = 10
-num_iter_seq = 100
-n_init = 5
-errinit = 1.5
-trans = 50
+num_iter_seq = 30
+n_init = 3
 root_rng_seed = 20230524  # int(sys.argv[1])
 pool_seq_parallelism = 4
+Tmax = 200  # 110, 125, 140, 200
 root_output_folder = os.path.join('outputs',
-                                 f'stereomatch_p{parallelism}_init{n_init}')
+                                 f'stereomatch10_T{Tmax}_p{parallelism}_init{n_init}')
 os.makedirs(root_output_folder, exist_ok=True)
 log_file = os.path.basename(root_output_folder) + '.log'
 log_file_path = os.path.join(root_output_folder, log_file)
@@ -47,10 +46,10 @@ all_parallelism_levels = [parallelism, 1]
 # Other parameters
 opt_bounds = {'confidence': [14, 64.01], 'hypo_step': [1, 3.01],
               'max_arm_length': [1, 16.01], 'num_threads': [1, 32.01]}
-opt_constraints = {'time': (0, 10000)}
+opt_constraints = {'time': (0, Tmax)}
 features = list(opt_bounds.keys())
 domain = os.path.join('resources', 'stereomatch_domain.csv')
-table = os.path.join('resources', 'stereomatch_table.csv')
+table = os.path.join('resources', 'stereomatch_10_table.csv')
 timeout = 1
 
 # Initialize and set relevant stuff

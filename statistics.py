@@ -112,7 +112,7 @@ for main_rng in main_rng_seeds:
       discrete_times = info['optimizer_time']
       # Initialize vector of time instants
       time_grid = np.arange(0, discrete_times.iloc[-1]+time_delta, time_delta)
-      time_regr = pd.Series(index=time_grid)
+      time_regr = pd.Series(index=time_grid, dtype=float)
       # Collect current regret at each time instant in the grid
       for i in range(hist.index.max()):
         time_regr[discrete_times[i]:discrete_times[i+1]] = regrets[i]
@@ -157,6 +157,7 @@ for main_rng in main_rng_seeds:
       new_times = np.arange(0, stop_time+time_delta, time_delta)
       times_regrs = times_regrs.reindex(new_times, method='ffill')
     ax[0].plot(times_regrs, lw=1, label=label)
+    print("!!", rng, par, times_regrs[stop_time])
     ax[0].set_xlim(0, stop_time)
     color = ax[0].lines[-1].get_color()
     # Plot individual agents in the case of parallelism 1
@@ -204,7 +205,7 @@ for main_rng in main_rng_seeds:
   fig.subplots_adjust(hspace=0.25)
   # Save plot to file
   plot_file = os.path.join(root_output_folder, f'{main_rng}.png')
-  fig.savefig(plot_file, bbox_inches='tight', dpi=300)
+  # fig.savefig(plot_file, bbox_inches='tight', dpi=300)
   print()
 
 # Make global plot
@@ -218,10 +219,13 @@ for par in parallelism_levels:
   label = par_to_labels[par]
   # Average regret over time
   df_time_regr = pd.concat([rng_to_par_to_results[r][par]['time_regr']
-                            for r in main_rng_seeds], axis=1)
-  df_time_regr = df_time_regr.fillna(method='ffill').mean(axis=1)
+                            for r in main_rng_seeds], axis=1) \
+                   .fillna(method='ffill')
+  stop_stdev = np.std(df_time_regr.loc[stop_time])
+  df_time_regr = df_time_regr.mean(axis=1)
   stop_value = df_time_regr[stop_time]
-  print(f"Incumbent for par = {par} at time {stop_time}: {stop_value}")
+  print(f"Incumbent for par = {par} at time {stop_time}: "
+        f"{stop_value} ± {stop_stdev}")
   ax_a.plot(df_time_regr, lw=1.5, label=label)
 
   # MAPE over iterations (only if available)
@@ -262,4 +266,4 @@ for letter, fig in letters_to_figs.items():
   basename = os.path.basename(root_output_folder)
   plot_file = os.path.join(root_output_folder, f'00_{basename}_{letter}.png')
   # fig.subplots_adjust(hspace=0.25)
-  fig.savefig(plot_file, bbox_inches='tight', dpi=300)
+  # fig.savefig(plot_file, bbox_inches='tight', dpi=300)
